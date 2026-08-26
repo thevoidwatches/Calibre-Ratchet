@@ -171,3 +171,42 @@ def test_login_success_sound_is_only_for_a_deliberate_sign_in():
     app = client.get("/ui/app.js").text
     assert "boot({announce: true})" in app
     assert "if (announce) play(\"success\")" in app
+
+
+def test_sort_options_are_published_and_default_to_last_modified():
+    body = client.get("/ui-config", headers=TOK).json()
+    keys = [o["key"] for o in body["sort_options"]]
+    assert keys == ["title", "series", "author", "modified"]
+    assert body["default_sort"] == "modified"
+
+
+def test_unknown_sort_is_rejected_not_silently_ignored():
+    """calibre answers 200 for a sort field it doesn't know, so ficsync has to
+    be the one that refuses."""
+    r = client.get("/books", params={"sort": "nonsense"}, headers=TOK)
+    assert r.status_code == 400
+    r = client.get("/books", params={"sort_order": "sideways"}, headers=TOK)
+    assert r.status_code == 400
+
+
+def test_known_sorts_reach_calibre():
+    for key in ["title", "series", "author", "modified"]:
+        r = client.get("/books", params={"sort": key, "sort_order": "asc"}, headers=TOK)
+        assert r.status_code == 502, key   # calibre unreachable, but sort accepted
+
+
+def test_book_rows_are_striped_by_rendered_position():
+    css = client.get("/ui/ui.css").text
+    assert "#results li:nth-child(even)" in css
+    assert "--stripe" in css
+
+
+def test_header_centres_the_library_selector():
+    """The selector must be its own header cell, not inside the right-hand
+    control group, or "centred" would only mean "centred within the buttons"."""
+    html = client.get("/ui/").text
+    header = html.split("<header>")[1].split("</header>")[0]
+    before_controls = header.split('class="controls"')[0]
+    assert 'id="librarySelect"' in before_controls
+    css = client.get("/ui/ui.css").text
+    assert "grid-template-columns: 1fr auto 1fr" in css

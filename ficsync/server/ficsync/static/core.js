@@ -4,6 +4,8 @@
 export const $ = id => document.getElementById(id);
 const TOKEN_KEY = "ficsync_token";
 const LIB_KEY = "ficsync_library";
+const SORT_KEY = "ficsync_sort";
+const SORT_DIR_KEY = "ficsync_sort_dir";
 
 export const state = {
   token: localStorage.getItem(TOKEN_KEY) || "",
@@ -11,6 +13,9 @@ export const state = {
   libraries: [],
   writable: [],            // fnmatch patterns from /ui-config
   genreField: "#genre",    // which custom column counts as "genre"
+  sortOptions: [],         // [{key, label}] from /ui-config
+  sort: localStorage.getItem(SORT_KEY),          // null until /ui-config answers
+  sortDir: localStorage.getItem(SORT_DIR_KEY) || "desc",
   updateAvailable: false,  // set by a Check that found new chapters
   cats: null,              // {name: {url}} parsed from /categories (best effort)
   catItems: {},            // name -> [itemName, ...] cache
@@ -23,6 +28,13 @@ export const state = {
 export function setToken(tok) {
   state.token = tok;
   localStorage.setItem(TOKEN_KEY, tok);
+}
+
+export function setSort(key, dir) {
+  state.sort = key;
+  state.sortDir = dir;
+  localStorage.setItem(SORT_KEY, key);
+  localStorage.setItem(SORT_DIR_KEY, dir);
 }
 
 export function setLibrary(id) {
@@ -47,6 +59,18 @@ function withLibrary(path) {
 // core.js announces the rejection rather than calling play() and making the
 // two circular.
 export const UNAUTHORIZED_EVENT = "ficsync:unauthorized";
+
+/** "Rivers of London #2" — series name plus index when there is one. Shared by
+ *  the book list and the detail page so the two cannot format it differently. */
+export function seriesLabel(meta) {
+  const name = meta && meta.series;
+  if (!name) return "";
+  const idx = meta.series_index;
+  if (idx === null || idx === undefined) return name;
+  // calibre stores the index as a float; show 2 rather than 2.0.
+  const n = Number(idx);
+  return name + " #" + (Number.isFinite(n) ? String(+n.toFixed(2)) : idx);
+}
 
 export function err(msg) { const b = $("errBox"); b.textContent = msg; b.hidden = false; }
 export function clearErr() { $("errBox").hidden = true; }

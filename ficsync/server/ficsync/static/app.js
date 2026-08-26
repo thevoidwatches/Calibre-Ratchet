@@ -1,6 +1,6 @@
 // Entry point: nav wiring, token handling, boot.
 "use strict";
-import { $, state, setToken, setLibrary, apiJson, clearErr, show } from "./core.js";
+import { $, state, setToken, setLibrary, setSort, apiJson, clearErr, show } from "./core.js";
 import { renderFilterChips, search } from "./browse.js";
 import "./picker.js";     // side effect: filter-picker button handlers
 import "./actions.js";    // side effect: check/update/epub button handlers
@@ -72,6 +72,39 @@ async function loadLibraries() {
 
 /** `announce` marks a deliberate sign-in. Plain page loads re-run boot() with
  *  a stored token, and chiming every time the app opens would be noise. */
+function renderSortDir() {
+  const btn = $("btnSortDir");
+  const down = state.sortDir === "desc";
+  btn.textContent = down ? "↓" : "↑";
+  btn.title = down ? "descending" : "ascending";
+  btn.setAttribute("aria-pressed", String(down));
+}
+
+/** The orders come from the server so the UI cannot offer one it would reject. */
+function initSort(uiCfg) {
+  state.sortOptions = uiCfg.sort_options || [];
+  const valid = new Set(state.sortOptions.map(o => o.key));
+  if (!valid.has(state.sort)) state.sort = uiCfg.default_sort || "title";
+
+  const sel = $("sortSelect");
+  sel.innerHTML = "";
+  for (const o of state.sortOptions) {
+    const opt = document.createElement("option");
+    opt.value = o.key;
+    opt.textContent = o.label;
+    sel.append(opt);
+  }
+  sel.value = state.sort;
+  renderSortDir();
+
+  sel.onchange = () => { setSort(sel.value, state.sortDir); search(); };
+  $("btnSortDir").onclick = () => {
+    setSort(state.sort, state.sortDir === "desc" ? "asc" : "desc");
+    renderSortDir();
+    search();
+  };
+}
+
 async function boot({announce = false} = {}) {
   clearErr();
   if (!state.token) { resetLibrarySelect(); show("token"); return; }
@@ -79,6 +112,7 @@ async function boot({announce = false} = {}) {
     const uiCfg = await apiJson("/ui-config");
     state.writable = uiCfg.writable_fields || [];
     if (uiCfg.genre_field !== undefined) state.genreField = uiCfg.genre_field;
+    initSort(uiCfg);
   } catch (e) { resetLibrarySelect(); return; }  // 401 already routed to the token view
   if (announce) play("success");   // the token was accepted
   await loadLibraries();

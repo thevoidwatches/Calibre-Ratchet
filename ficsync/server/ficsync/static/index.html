@@ -23,12 +23,12 @@
 <body>
 <header>
   <h1>Ratchet</h1>
+  <select id="librarySelect" aria-label="library" disabled>
+    <!-- Replaced once /libraries answers; until then (and on the token
+         screen, which never gets that far) this is what shows. -->
+    <option value="">Library</option>
+  </select>
   <div class="controls">
-    <select id="librarySelect" aria-label="library" disabled>
-      <!-- Replaced once /libraries answers; until then (and on the token
-           screen, which never gets that far) this is what shows. -->
-      <option value="">Library</option>
-    </select>
     <button class="small" id="btnTheme" aria-pressed="false">Dark</button>
     <button class="small" id="btnMute" aria-pressed="false">Mute</button>
     <button class="small icon" id="btnSettings" title="token">&#9881;</button>
@@ -53,6 +53,12 @@
       <input type="search" id="q" placeholder="search (calibre syntax works)">
       <button class="primary">Go</button>
     </form>
+    <div class="row sortrow">
+      <label class="small muted" for="sortSelect">Sort</label>
+      <select id="sortSelect" aria-label="sort order"></select>
+      <button type="button" class="small icon" id="btnSortDir"
+              title="sort direction" aria-label="sort direction">&#8595;</button>
+    </div>
     <div id="queryPreview" class="small muted"></div>
     <ol id="results" class="list"></ol>
     <button id="btnMore" class="small" hidden>more</button>
