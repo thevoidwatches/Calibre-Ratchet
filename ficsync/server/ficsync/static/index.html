@@ -85,10 +85,14 @@
     <button class="small" data-nav="browse">&larr; cancel</button>
     <h2 id="pickValTitle"></h2>
     <div class="row">
-      <label><input type="radio" name="mode" value="include" checked> include</label>
-      <label><input type="radio" name="mode" value="exclude"> exclude (NOT)</label>
-    </div>
-    <div class="row">
+      <div class="tabs" role="tablist" aria-label="include or exclude">
+        <button type="button" class="tab on" role="tab" id="tabInclude"
+                data-mode="include" aria-selected="true"
+                title="match this value">Is</button>
+        <button type="button" class="tab" role="tab" id="tabExclude"
+                data-mode="exclude" aria-selected="false"
+                title="exclude this value">Not</button>
+      </div>
       <input type="text" id="freeValue" placeholder="or type a value">
       <button class="small" id="btnFreeValue">use</button>
     </div>

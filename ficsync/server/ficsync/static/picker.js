@@ -146,6 +146,7 @@ async function pickValue(colName) {
   state.pickingCol = colName;
   $("pickValTitle").textContent = colName;
   $("freeValue").value = "";
+  setMode(false);
   $("valTree").innerHTML = "loading…";
   show("pickval");
   const items = await loadCatItems(colName);
@@ -157,6 +158,7 @@ function pickPreset() {
   state.pickingCol = PRESET_COL;
   $("pickValTitle").textContent = PRESET_COL;
   $("freeValue").value = "";
+  setMode(false);
   const box = $("valTree");
   box.innerHTML = "";
   const ul = document.createElement("ul"); ul.className = "tree";
@@ -190,9 +192,21 @@ function addPresetAtom(name) {
   addAtom({preset: name, exclude: currentMode()});
 }
 
+// Which tab is active. Held in the DOM rather than a variable so the button
+// state and the value used can never disagree.
 function currentMode() {
-  return document.querySelector('input[name="mode"]:checked').value === "exclude";
+  return $("tabExclude").classList.contains("on");
 }
+
+function setMode(exclude) {
+  for (const [btn, isOn] of [[$("tabInclude"), !exclude], [$("tabExclude"), exclude]]) {
+    btn.classList.toggle("on", isOn);
+    btn.setAttribute("aria-selected", String(isOn));
+  }
+}
+
+for (const id of ["tabInclude", "tabExclude"])
+  $(id).onclick = () => setMode(id === "tabExclude");
 
 function addFilter(value) {
   addAtom({field: lookupOf(state.pickingCol), value,

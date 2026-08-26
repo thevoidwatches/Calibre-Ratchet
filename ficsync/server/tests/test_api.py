@@ -313,3 +313,27 @@ def test_empty_preset_name_is_rejected():
     r = client.put("/filters/Bad2", json={"groups": [
         {"terms": [{"preset": "  "}]}]}, headers=TOK)
     assert r.status_code == 400
+
+
+def test_include_exclude_is_a_tab_selector_beside_the_value_input():
+    html = client.get("/ui/").text
+    section = html.split('id="vPickVal"')[1].split("</section>")[0]
+    assert 'name="mode"' not in section          # the radios are gone
+    assert 'id="tabInclude"' in section and 'id="tabExclude"' in section
+    # Same row as the free-value input, per the requested layout.
+    row = [r for r in section.split('<div class="row">') if "freeValue" in r][0]
+    assert 'id="tabInclude"' in row
+    # The chosen mode is read from the tab, not from a stale radio group.
+    assert 'input[name="mode"]' not in client.get("/ui/picker.js").text
+
+
+def test_include_exclude_is_a_tab_selector_beside_the_value_input():
+    html = client.get("/ui/").text
+    section = html.split('id="vPickVal"')[1].split("</section>")[0]
+    assert 'name="mode"' not in section          # the radios are gone
+    assert 'id="tabInclude"' in section and 'id="tabExclude"' in section
+    # Same row as the free-value input, per the requested layout.
+    row = [r for r in section.split('<div class="row">') if "freeValue" in r][0]
+    assert 'id="tabInclude"' in row
+    # The mode is read from the tab, not from a stale radio group.
+    assert 'input[name="mode"]' not in client.get("/ui/picker.js").text
