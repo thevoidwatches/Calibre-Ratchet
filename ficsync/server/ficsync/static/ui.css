@@ -118,6 +118,15 @@ button.icon { min-width: 44px; padding: 8px 10px; font-size: 1.1rem; line-height
 .orbtn { min-height: 28px; padding: 2px 8px; font-size: 0.8rem;
          border-width: 1px; border-style: dashed; }
 
+/* Include / Exclude as a two-tab segmented control, sharing a row with the
+   free-value input. */
+.tabs { display: inline-flex; flex: 0 0 auto; border: 2px solid var(--fg);
+        border-radius: 6px; overflow: hidden; }
+.tabs .tab { border: none; border-radius: 0; min-height: 44px; padding: 8px 14px;
+             background: var(--bg); color: var(--fg); }
+.tabs .tab + .tab { border-left: 2px solid var(--fg); }
+.tabs .tab.on { background: var(--fg); color: var(--bg); font-weight: bold; }
+
 .sortrow { gap: 6px; }
 .sortrow select { min-height: 38px; padding: 4px 6px; flex: 1; min-width: 120px; }
 .sortrow label { flex: 0 0 auto; }
