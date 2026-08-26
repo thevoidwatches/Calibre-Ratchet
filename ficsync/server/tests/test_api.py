@@ -337,3 +337,14 @@ def test_include_exclude_is_a_tab_selector_beside_the_value_input():
     assert 'id="tabInclude"' in row
     # The mode is read from the tab, not from a stale radio group.
     assert 'input[name="mode"]' not in client.get("/ui/picker.js").text
+
+
+def test_collapse_markers_are_real_arrows_and_match_the_filter_bar():
+    """These have been mangled twice by escaping layers: once into an octal
+    escape (a 0x15 control byte), once into a literal backslash sequence."""
+    css = client.get("/ui/ui.css").text
+    assert "\u25b8" in css and "\u25be" in css        # closed / open markers
+    assert not [c for c in css if ord(c) < 32 and c not in "\r\n\t"]
+    # The same glyphs the filter bar draws, so the two read alike.
+    assert "\u25b8" in client.get("/ui/browse.js").text
+    assert "\u25be" in client.get("/ui/browse.js").text

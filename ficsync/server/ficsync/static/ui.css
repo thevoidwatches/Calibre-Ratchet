@@ -81,6 +81,21 @@ input, select { font: inherit; border: 2px solid var(--fg); border-radius: 6px;
             margin: 10px 0; }
 .fieldset h3 { margin: 0 0 4px; font-size: 1rem; }
 
+/* Collapsible metadata editors. The summary keeps a big tap target and shows
+   the current value while closed. */
+details.fieldset > summary { cursor: pointer; list-style: none; display: flex;
+                             align-items: baseline; gap: 8px; min-height: 32px;
+                             padding: 2px 0; }
+details.fieldset > summary::-webkit-details-marker { display: none; }
+details.fieldset > summary::before { content: "▸"; flex: 0 0 auto; }
+details.fieldset[open] > summary::before { content: "▾"; }
+details.fieldset > summary .flabel { font-weight: bold; flex: 0 0 auto; }
+/* The value is the part that gives way when the row runs out of room. */
+details.fieldset > summary .fvalue { flex: 1 1 auto; min-width: 0;
+                                     overflow: hidden; text-overflow: ellipsis;
+                                     white-space: nowrap; text-align: right; }
+details.fieldset[open] > summary .fvalue { display: none; }
+
 .tree { list-style: none; padding-left: 0; }
 .tree ul { list-style: none; padding-left: 18px; }
 .tree .node { display: inline-block; padding: 7px 4px; min-height: 38px; }
