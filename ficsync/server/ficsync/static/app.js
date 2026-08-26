@@ -4,17 +4,19 @@ import { $, state, setToken, setLibrary, apiJson, clearErr, show } from "./core.
 import { renderFilterChips, search } from "./browse.js";
 import "./picker.js";     // side effect: filter-picker button handlers
 import "./actions.js";    // side effect: check/update/epub button handlers
-import { initSfx } from "./sfx.js";
+import { initSfx, play } from "./sfx.js";
+import { initTheme } from "./theme.js";
 
 document.querySelectorAll("[data-nav]").forEach(b =>
   b.addEventListener("click", () => show(b.dataset.nav)));
 
+initTheme();
 initSfx();
 
 $("btnSettings").onclick = () => { $("tokenInput").value = state.token; show("token"); };
 $("btnSaveToken").onclick = () => {
   setToken($("tokenInput").value.trim());
-  boot();
+  boot({announce: true});
 };
 
 /** The library to open on: whichever this device last chose, else the
@@ -32,11 +34,21 @@ function pickStartingLibrary(data) {
   return state.libraries.length ? state.libraries[0].id : "";
 }
 
+/** Put the selector back to its pre-login state: a single inert placeholder
+ *  rather than a stale list from whoever was signed in before. */
+export function resetLibrarySelect() {
+  const sel = $("librarySelect");
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Library</option>';
+  sel.disabled = true;
+  sel.hidden = false;
+}
+
 async function loadLibraries() {
   const sel = $("librarySelect");
   let data;
   try { data = await apiJson("/libraries"); }
-  catch (e) { sel.hidden = true; return; }
+  catch (e) { resetLibrarySelect(); sel.hidden = true; return; }
   state.libraries = data.libraries || [];
   state.library = pickStartingLibrary(data);
   sel.innerHTML = "";
@@ -47,6 +59,7 @@ async function loadLibraries() {
     sel.append(o);
   }
   sel.value = state.library;
+  sel.disabled = false;
   sel.hidden = state.libraries.length < 2;
   sel.onchange = () => {
     setLibrary(sel.value);        // persisted; this device reopens here
@@ -57,14 +70,17 @@ async function loadLibraries() {
   };
 }
 
-async function boot() {
+/** `announce` marks a deliberate sign-in. Plain page loads re-run boot() with
+ *  a stored token, and chiming every time the app opens would be noise. */
+async function boot({announce = false} = {}) {
   clearErr();
-  if (!state.token) { show("token"); return; }
+  if (!state.token) { resetLibrarySelect(); show("token"); return; }
   try {
     const uiCfg = await apiJson("/ui-config");
     state.writable = uiCfg.writable_fields || [];
     if (uiCfg.genre_field !== undefined) state.genreField = uiCfg.genre_field;
-  } catch (e) { return; }   // 401 already routed to the token view
+  } catch (e) { resetLibrarySelect(); return; }  // 401 already routed to the token view
+  if (announce) play("success");   // the token was accepted
   await loadLibraries();
   show("browse");
   renderFilterChips();

@@ -43,13 +43,22 @@ function withLibrary(path) {
          "library=" + encodeURIComponent(state.library);
 }
 
+// Fired whenever the server rejects our token. sfx.js imports this module, so
+// core.js announces the rejection rather than calling play() and making the
+// two circular.
+export const UNAUTHORIZED_EVENT = "ficsync:unauthorized";
+
 export function err(msg) { const b = $("errBox"); b.textContent = msg; b.hidden = false; }
 export function clearErr() { $("errBox").hidden = true; }
 
 export async function api(path, opts = {}) {
   opts.headers = Object.assign({"X-Api-Token": state.token}, opts.headers || {});
   const r = await fetch(withLibrary(path), opts);
-  if (r.status === 401) { show("token"); throw new Error("bad token"); }
+  if (r.status === 401) {
+    show("token");
+    window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT));
+    throw new Error("bad token");
+  }
   if (!r.ok) {
     let detail = "";
     try { detail = (await r.json()).detail; }
