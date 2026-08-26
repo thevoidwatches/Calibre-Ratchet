@@ -1,0 +1,9 @@
+{
+  "name": "Ratchet",
+  "short_name": "Ratchet",
+  "start_url": "/ui/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000"
+}

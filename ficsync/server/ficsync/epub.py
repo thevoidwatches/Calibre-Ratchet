@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from xml.etree import ElementTree as ET
 
 from .chapterkeys import canonical_key
+from .titles import normalize_title
 
 _META_URL_RE = re.compile(
     r'<meta\s+name=(["\'])chapterurl\1\s+content=(["\'])(?P<url>[^"\']+)\2', re.I)
@@ -33,6 +34,30 @@ _A_URL_RE = re.compile(
 _A_URL_RE2 = re.compile(  # attribute order swapped
     r'<a[^>]+href=(["\'])(?P<url>[^"\']+)\1[^>]+class=(["\'])chapterurl\3', re.I)
 _TITLE_RE = re.compile(r"<title>(?P<t>.*?)</title>", re.I | re.S)
+_XML_DECL_ENC_RE = re.compile(rb"""<\?xml[^>]*encoding=["']([\w.-]+)["']""", re.I)
+_META_CHARSET_RE = re.compile(rb"""<meta[^>]+charset=["']?([\w.-]+)""", re.I)
+
+
+def _decode(data: bytes) -> str:
+    """Decode a chapter document using its own declared encoding.
+
+    EPUB mandates UTF-8/UTF-16, but epubs that have been through other tools
+    (or very old FanFicFare output) can carry cp1252 bytes. Blind UTF-8
+    decoding turns a curly apostrophe into U+FFFD, which then shows up as a
+    phantom "retitled" report on every check.
+    """
+    head = data[:1024]
+    m = _XML_DECL_ENC_RE.search(head) or _META_CHARSET_RE.search(head)
+    encodings = []
+    if m:
+        encodings.append(m.group(1).decode("ascii", "replace"))
+    encodings += ["utf-8", "cp1252"]
+    for enc in encodings:
+        try:
+            return data.decode(enc)
+        except (UnicodeDecodeError, LookupError):
+            continue
+    return data.decode("utf-8", errors="replace")
 
 _NS = {
     "cnt": "urn:oasis:names:tc:opendocument:xmlns:container",
@@ -94,7 +119,7 @@ def extract_chapters(epub_path: str) -> list[Chapter]:
                 continue
             path = posixpath.normpath(posixpath.join(base, href)) if base else href
             try:
-                data = zf.read(path).decode("utf-8", errors="replace")
+                data = _decode(zf.read(path))
             except KeyError:
                 continue
 
@@ -104,7 +129,7 @@ def extract_chapters(epub_path: str) -> list[Chapter]:
             url = m.group("url").strip()
 
             tm = _META_ORIGTITLE_RE.search(data) or _TITLE_RE.search(data)
-            title = re.sub(r"\s+", " ", tm.group("t")).strip() if tm else ""
+            title = normalize_title(tm.group("t")) if tm else ""
 
             chapters.append(Chapter(key=canonical_key(url), url=url, title=title))
     return chapters

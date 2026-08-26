@@ -17,7 +17,10 @@ one-story-at-a-time as intended and don't wire it into anything that mass-polls.
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import subprocess
+import sys
 import threading
 import time
 from dataclasses import dataclass
@@ -25,6 +28,7 @@ from dataclasses import dataclass
 from .chapterkeys import canonical_key, site_of
 from .config import Config
 from .epub import Chapter
+from .titles import normalize_title
 
 
 class SiteFetchError(Exception):
@@ -55,28 +59,57 @@ class RemoteStory:
     raw: dict            # full FFF metadata for anything else you want later
 
 
+def _fff_cmd_prefix(cfg: Config) -> list[str]:
+    binary = cfg.fanficfare.binary
+    if binary == "fanficfare" and shutil.which(binary) is None:
+        # FanFicFare is a declared dependency of this project, so when the console script isn't on PATH (typical when the venv isn't activated — a Task Scheduler or systemd launch), run it through this same interpreter instead.
+        return [sys.executable, "-m", "fanficfare.cli"]
+    return [binary]
+
+
 def _fff_base_cmd(cfg: Config) -> list[str]:
-    cmd = [cfg.fanficfare.binary, "--non-interactive"]
+    cmd = _fff_cmd_prefix(cfg) + ["--non-interactive"]
     if cfg.fanficfare.config_file:
         cmd += ["-c", cfg.fanficfare.config_file]
     cmd += list(cfg.fanficfare.extra_options)
     return cmd
 
 
+def run_fff(args: list[str], cfg: Config) -> subprocess.CompletedProcess:
+    """Run fanficfare with UTF-8 pipes on every platform.
+
+    On Windows, both our decoding default and the child's stdout encoding
+    would otherwise be the ANSI codepage (e.g. cp1252), which mangles or
+    crashes on non-Latin story/chapter titles. PYTHONIOENCODING makes the FFF
+    process emit UTF-8; encoding= makes us decode it as such.
+
+    Shared by the metadata pre-flight (fetch_remote) and the actual update
+    (fff.update_epub) so both always run with identical binary, config, and
+    options.
+    """
+    cmd = _fff_base_cmd(cfg) + args
+    if "--force" in cmd:
+        # The safety invariant: --force is not reachable through this service.
+        raise ValueError("refusing to run fanficfare with --force")
+    env = dict(os.environ, PYTHONIOENCODING="utf-8")
+    return subprocess.run(
+        cmd, capture_output=True, encoding="utf-8", errors="replace",
+        timeout=cfg.fanficfare.timeout_seconds, env=env,
+    )
+
+
 def fetch_remote(story_url: str, cfg: Config) -> RemoteStory:
     site = site_of(story_url)
     _politeness_wait(site, cfg.politeness.min_seconds_between_site_requests)
 
-    cmd = _fff_base_cmd(cfg) + ["-m", "-j", "--no-output", story_url]
     try:
-        proc = subprocess.run(
-            cmd, capture_output=True, text=True,
-            timeout=cfg.fanficfare.timeout_seconds,
-        )
+        proc = run_fff(["-m", "-j", "--no-output", story_url], cfg)
     except subprocess.TimeoutExpired as e:
         raise SiteFetchError(f"fanficfare metadata fetch timed out for {story_url}") from e
     except FileNotFoundError as e:
         raise SiteFetchError(f"fanficfare binary not found: {cfg.fanficfare.binary}") from e
+    except ValueError as e:  # the --force guard (i.e. --force in extra_options)
+        raise SiteFetchError(str(e)) from e
 
     # With -m -j, stdout should be pure JSON; be defensive about stray
     # pre-JSON warnings anyway by parsing from the first '{'.
@@ -107,7 +140,7 @@ def fetch_remote(story_url: str, cfg: Config) -> RemoteStory:
             raise SiteFetchError(f"unexpected zchapters entry shape: {entry!r}") from e
         chapters.append(Chapter(
             key=canonical_key(url), url=url,
-            title=str(chap.get("title", "")).strip(),
+            title=normalize_title(str(chap.get("title", ""))),
         ))
 
     return RemoteStory(

@@ -1,13 +1,26 @@
 # ficsync — plan and design notes
 
-Personal service that solves two problems with a calibre + FanFicFare +
-Royal Road/AO3 web-serial library, from a phone, over Tailscale:
+Personal service that removes the friction in the e-reading loop
+(calibre + FanFicFare on the desktop -> Calibre Sync -> Moon+ on an Android
+ereader), from the ereader or phone, over Tailscale. One embedded mobile web
+app (`/ui`, installable to the home screen; served by the service itself, no
+client app to build) provides:
 
-1. **Update serials remotely without ever losing chapters to stubbing.**
-2. **Edit calibre metadata (tags, `#genre`, `#readinglist`) without the
-   content-server browser UI.**
+1. **Browse the library with real filtering** — any column; hierarchical
+   values matched at any level (filtering on `Science Fiction` also finds
+   `Science Fiction.Space Opera`, and vice versa the narrower filter works
+   too); multiple filters ANDed; negative filters ("everything on this
+   reading list except this tag"). Replaces calibre's content-server web UI,
+   which made this miserable on an ereader.
+2. **Edit a book's metadata right after reading it** — add/remove tags,
+   adjust `#genre`, switch `#readinglist` — no browser trip to calibre's UI,
+   no walk to the computer.
+3. **Fetch new chapters of a just-finished serial immediately** — with the
+   stub-safety invariant below as a hard requirement (kept from the original
+   design): updating must never silently lose locally-held chapters.
 
-Explicit non-goals: not a reader (Moon+ stays), no mass update polling, no
+Explicit non-goals: not a reader (Moon+ stays), not the delivery channel
+(Calibre Sync keeps doing ereader downloads), no mass update polling, no
 multi-user anything.
 
 Everything in `server/` was written and unit-tested against the facts below.
@@ -16,14 +29,16 @@ Confidence labels used throughout:
 - **[VERIFIED src: FFF 4.60.0]** — read directly from installed FanFicFare
   4.60.0 source. Re-check only if you run a different version.
 - **[VERIFIED src: calibre master]** — read from calibre's `srv/` source,
-  master branch, Aug 2026. Your installed calibre may be older; one-command
-  checks below.
+  master branch, Aug 2026.
+- **[VERIFIED live: calibre 9.13]** — exercised against this machine's running
+  content server on 2026-08-26, including a create/write/replace/delete cycle
+  on a throwaway book.
 - **[VERIFY on your setup]** — environment-specific; needs a 2-minute test.
 - **[ASSUMPTION]** — believed, not proven.
 
 ---
 
-## 1. The problem that shaped the design
+## 1. The safety problem that shaped the update path
 
 FanFicFare's update guard is a **chapter-count comparison**, nothing more.
 **[VERIFIED src: FFF 4.60.0, cli.py]**:
@@ -160,7 +175,12 @@ POST /cdb/set-fields/{id}/{lib}    body {"changes":{…},"loaded_book_ids":[]}
 ```
 
 `{lib}` is optional everywhere (`{library_id=None}` in the routes) — empty
-string = default library. Auth default is mode `auto`: **digest** over plain
+string = default library. This setup has four libraries (Books, Fanfiction,
+Erotica, Serials), so the library is chosen **per request**: every ficsync
+endpoint takes `?library=`, `GET /libraries` lists them, and the UI has a
+library selector. Book ids are only unique within a library, so the sidecar
+DB and the per-book update locks are keyed by `(library_id, book_id)`.
+**[VERIFIED live: calibre 9.13]** Auth default is mode `auto`: **digest** over plain
 HTTP, basic behind SSL **[VERIFIED src: calibre master, srv/opts.py]**; the
 client sniffs the challenge and handles both.
 
@@ -212,13 +232,19 @@ server/ficsync/
   calibre.py       content-server client (digest/basic sniffing, set-fields,
                    base64 format push)
   db.py            sidecar SQLite: snapshots + audit events
-  main.py          FastAPI app; per-book locks; backup/verify/push flow
+  main.py          FastAPI app; per-book locks; backup/verify/push flow;
+                   serves the embedded UI + a constrained /category-items proxy
+  static/          the phone/ereader web app (index.html + ui.css + small JS
+                   modules; no build step): filter-browse (hierarchy-aware,
+                   include/exclude), chip metadata editors driven by
+                   writable_fields + column datatypes, Check/Update with
+                   refusals rendered honestly, epub download. PWA manifest.
 scripts/snapshot_baseline.py   local-only baseline + data-quality report
-tests/                         13 tests, green (incl. the 50/60 scenario and
-                               synthetic-epub extraction, both meta and legacy
-                               anchor styles)
-server/README.md               setup, systemd, Tailscale
-android/http-shortcuts.md      phase-1 phone client
+tests/                         19 tests, green (incl. the 50/60 scenario,
+                               synthetic-epub extraction in both meta and
+                               legacy anchor styles, and app-level API tests)
+server/README.md               setup (Windows-first), Tailscale, autostart
+android/http-shortcuts.md      fallback client (superseded by /ui)
 ```
 
 What the tests can't cover from here: anything that needs *your* live calibre,
@@ -226,9 +252,41 @@ What the tests can't cover from here: anything that needs *your* live calibre,
 
 ## 5. Build order from here (each step is small)
 
+> **Windows note:** this deploys on the Windows 10 machine that hosts calibre.
+> Command equivalents for the steps below: `python` not `python3`; in
+> PowerShell use `curl.exe` (bare `curl` aliases Invoke-WebRequest); activate
+> the venv with `.venv\Scripts\Activate.ps1`; autostart is a Task Scheduler
+> task, not systemd — see `ficsync/server/README.md` for the full Windows setup.
+
 1. **S1 — env sanity (10 min).** venv, `pip install -r requirements.txt`,
    `pytest -q` (should be 13 green), `fanficfare --version`.
-2. **S2 — calibre verification (10 min).** Content server running. Then:
+2. **S2 — calibre verification — DONE 2026-08-26.** Content server is
+   calibre **9.13** on this machine. Verified live: digest auth; four
+   libraries; `/ajax/search` with the hierarchy filter syntax below;
+   `/ajax/categories` + per-category walking; `/get/EPUB`; and a full
+   create → set-fields → **`added_formats` replace** → delete cycle on a
+   throwaway book. `added_formats`/`removed_formats` confirmed present in
+   9.13's `cdb_set_fields`, so the calibredb fallback is not needed. Also
+   confirmed: `/get/EPUB` returns a *metadata-injected* copy (calibre rewrites
+   the OPF and adds a cover), but `dc:source` and every `chapterurl` meta
+   survive it, so extraction and `fanficfare -u` are unaffected.
+
+   Hierarchy filtering is done client-side as a calibre search, verified
+   against the live library: `#genre:"~^Science Fiction(\.|$)"` returns the
+   parent *and* its descendants (12), vs `#genre:"=Science Fiction"` for the
+   parent alone (6); `not` negates; filters AND together. Non-hierarchical
+   columns (authors, series, …) use `="value"` instead, so a dot inside an
+   author name is not read as hierarchy.
+
+   The `/ajax/category/<hex>/<lib>` shape is the one thing worth re-checking
+   on a calibre upgrade: the hex segment decodes to the real lookup name
+   (`Genre` -> `#genre`), rows with `is_category: false` are browse buckets
+   rather than columns, and a hierarchical column returns only the values at
+   the current node plus a `subcategories` list that has to be walked — the
+   full value is the node path plus the item name. The UI walk was checked
+   against ground truth: it reproduces all 38 stored `#genre` values exactly.
+
+   ~~**S2 — calibre verification (10 min).**~~ Content server running. Then:
    - `curl -su user:pass --digest http://127.0.0.1:8080/ajax/library-info`
    - download one epub via `/get/EPUB/<id>` and, on a **throwaway test book**,
      verify set-fields: change a tag, then push the same epub back through
@@ -238,14 +296,34 @@ What the tests can't cover from here: anything that needs *your* live calibre,
      calibre master now; if your installed calibre is old enough to lack it,
      the fallback is `calibredb add_format --with-library=http://…#LibID`.
      Check `calibre --version` and test once.
-3. **S3 — FFF metadata JSON (5 min).** On one RR and one AO3 story you own:
+3. **S3 — FFF metadata JSON — DONE 2026-08-26.** FanFicFare **4.60.0** (the
+   exact version every `[VERIFIED src]` claim was checked against). A live
+   metadata fetch on a Royal Road story returned `zchapters` in the expected
+   shape, keys resolved to `rr:<id>`, and `decide()` produced a correct
+   `update` / clean-append verdict against the real epub.
+
+   ~~**S3 — FFF metadata JSON (5 min).**~~ On one RR and one AO3 story you own:
    `fanficfare --non-interactive -m -j --no-output <url> | python3 -m json.tool | head -50`
    — confirm `zchapters` appears and URLs look as expected. (Shape is
    **[VERIFIED src]**, this just confirms your version/config behaves.)
-4. **S4 — baseline.** `snapshot_baseline.py --limit 5`, then full library.
-   Books flagged `no-chapterurls` are pre-chapterurl-era epubs: refresh each
-   once via the desktop FFF plugin (or full re-download) before ficsync will
-   touch them.
+4. **S4 — baseline — DONE for Serials 2026-08-26** (91 of 99 books snapshotted;
+   `--library Serials`). Remaining libraries are a re-run away:
+   `python scripts/snapshot_baseline.py --config config.toml --all-libraries`.
+
+   The 8 exceptions in Serials, and what each needs:
+   - `no-chapterurls` (pre-chapterurl-era FFF epubs) — refresh once via the
+     desktop FFF plugin before ficsync will update them: **24** (Shrouding the
+     Heavens), **87** (A Record of a Mortal's Journey to Immortality).
+   - `no dc:source` (not FanFicFare epubs at all — bought/sideloaded) — these
+     are not updatable by any tool and simply aren't ficsync's business;
+     metadata editing still works on them: **90–94** (Beware of Chicken 1–5),
+     **95** (Blue Core).
+
+   Site spread in Serials: 87 Royal Road, 2 AO3, 2 SpaceBattles. The two
+   SpaceBattles stories fall back to `url:`-normalized chapter keys (no
+   site-specific pattern in `chapterkeys.py`), which is safe as long as
+   SpaceBattles post URLs stay stable — worth a `[VERIFY on your setup]` the
+   first time one of them updates.
 5. **S5 — first supervised update.** Pick a story you know has new chapters.
    `/check`, read the JSON, then `/update?dry_run=true`, then `/update`.
    Confirm in calibre that the epub grew and metadata (tags etc.) survived.
@@ -260,19 +338,24 @@ What the tests can't cover from here: anything that needs *your* live calibre,
    file + spine entry from a copy of its epub (or set the config to `refuse`
    and just wait until a real interlude-insertion happens), run `/update`,
    confirm the post-verify passes and the chapter text is intact.
-7. **S7 — phone.** `android/http-shortcuts.md`. You're now using it daily.
-8. **Phase 2 — the Expo client** (2–3 weekends, when the API feels settled):
-   - Screens: search/list (calibre query passthrough) → book detail →
-     tag/`#genre`/`#readinglist` chip editors → Check / Update buttons with
-     the decision JSON rendered honestly (especially refusals) → "Get epub"
-     via SAF into the folder Moon+ watches.
-   - Chips autocomplete from `GET /categories` — the anti-`litrpg`/`LitRPG`/
-     `lit-rpg` feature that beats the web UI.
-   - The app talks **only to ficsync**, never to calibre directly: one auth
-     story, one place to absorb calibre endpoint drift.
-   - Managed Expo works: no background execution needed. The one fiddly bit
-     is SAF folder access for the epub handoff **[ASSUMPTION: workable via
-     expo-file-system SAF API — verify early, it shapes the download UX]**.
+7. **S7 — the UI, live.** Service now binds `host = "tailscale"` (resolved at
+   startup; currently 100.123.75.89) and needs the one-time inbound firewall
+   rule in `server/README.md` before a phone or ereader can connect.
+   ~~**S7 — the UI, live.**~~ Open `http://<host>:8484/ui` on the ereader and
+   the phone, paste the token once, add to home screen. Verify against the
+   real library: the filter picker's column list and value trees populate
+   (the `/ajax/categories` and per-category item response *shapes* are the
+   one **[VERIFY on your setup]** piece of the UI — parsing is defensive, and
+   the picker degrades to typed filter values if a shape surprises us; fix is
+   client-side only), hierarchy filtering matches at every level, chip edits
+   round-trip, Check/Update renders refusals loudly. `android/http-shortcuts.md`
+   is now a fallback, not the plan.
+8. **Phase 2 — a native (Expo) client: only if `/ui` proves insufficient.**
+   The embedded web app covers the original phase-2 screen list (search →
+   detail → chip editors → Check/Update → epub). Reasons that would justify
+   going native anyway: SAF folder handoff directly into Moon+'s watched
+   folder, offline caching, nicer e-ink rendering than the browser manages.
+   Decide after a few weeks of daily `/ui` use.
 9. **Phase 3 (optional) — RR watchlist.** RR syndication feed
    (`royalroad.com/fiction/syndication/<id>`, comma-separable, ~10-item cap)
    polled *gently* could badge "has updates" in the phase-2 app. Deliberately
@@ -291,7 +374,8 @@ What the tests can't cover from here: anything that needs *your* live calibre,
   fallback).
 - **Plugin-managed calibre columns don't auto-refresh** on CLI updates (S5).
 - **The service trusts its config file** — it holds the calibre password and
-  optionally AO3 creds in personal.ini. `chmod 600`, tailnet-only, done.
+  optionally AO3 creds in personal.ini. Keep it in your user profile on this
+  single-user machine (`chmod 600` on Linux), tailnet-only, gitignored, done.
 - **Politeness is a floor, not a guarantee.** The throttle spaces requests;
   the real protection is the usage pattern: user-triggered, one story at a
   time. Keep it that way.
