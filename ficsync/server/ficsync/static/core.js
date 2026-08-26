@@ -19,9 +19,13 @@ export const state = {
   updateAvailable: false,  // set by a Check that found new chapters
   cats: null,              // {name: {url}} parsed from /categories (best effort)
   catItems: {},            // name -> [itemName, ...] cache
-  filters: [],             // {field, value, exclude}
+  // AND of ORs: terms inside a group are ORed, groups are ANDed.
+  filterGroups: [],        // [{terms: [{field, value, exclude, hierarchical}]}]
+  pickingGroup: null,      // group index the value picker is adding to (null = new)
+  savedFilters: [],        // [{name, groups}] from /filters, per library
   offset: 0,
   bookId: null,
+  bookMeta: null,          // calibre metadata for the open book
   pickingCol: null,
 };
 
@@ -44,7 +48,8 @@ export function setLibrary(id) {
   // the previous one so filters can't leak across.
   state.cats = null;
   state.catItems = {};
-  state.filters = [];
+  state.filterGroups = [];
+  state.savedFilters = [];
 }
 
 // calibre book ids are only unique within a library, so every call carries the
@@ -60,17 +65,10 @@ function withLibrary(path) {
 // two circular.
 export const UNAUTHORIZED_EVENT = "ficsync:unauthorized";
 
-/** "Rivers of London #2" — series name plus index when there is one. Shared by
- *  the book list and the detail page so the two cannot format it differently. */
-export function seriesLabel(meta) {
-  const name = meta && meta.series;
-  if (!name) return "";
-  const idx = meta.series_index;
-  if (idx === null || idx === undefined) return name;
-  // calibre stores the index as a float; show 2 rather than 2.0.
-  const n = Number(idx);
-  return name + " #" + (Number.isFinite(n) ? String(+n.toFixed(2)) : idx);
-}
+// browse.js renders the filter chips and owns the "+ or" buttons, while
+// picker.js owns the column/value screens and already imports browse.js.
+// An event keeps that dependency one-directional instead of circular.
+export const PICK_FILTER_EVENT = "ficsync:pick-filter";
 
 export function err(msg) { const b = $("errBox"); b.textContent = msg; b.hidden = false; }
 export function clearErr() { $("errBox").hidden = true; }

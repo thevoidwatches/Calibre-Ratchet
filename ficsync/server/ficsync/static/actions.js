@@ -1,6 +1,7 @@
 // Check / Update / epub download + decision rendering.
 "use strict";
 import { $, state, api, apiJson, err, clearErr } from "./core.js";
+import { epubFilename } from "./format.js";
 import { play, playForDecision } from "./sfx.js";
 
 /** The Update button is only emphasised once a Check has actually found new
@@ -79,16 +80,46 @@ $("btnUpdate").onclick = async () => {
   finally { busy(null); }
 };
 
+/** Save the epub, letting the browser choose a destination folder where it can.
+ *
+ *  Chromium on the DESKTOP exposes showSaveFilePicker, and remembers the last
+ *  directory used for a given `id`, so picking a folder once makes every later
+ *  save land there. Android Chrome does not implement it at all — there the
+ *  only fallback is a normal download into the browser's download directory,
+ *  which the page cannot influence. (Chrome's own "Ask where to save files"
+ *  setting adds a per-download folder prompt; a site cannot turn it on.)
+ */
+async function saveEpub(blob, filename) {
+  if (window.showSaveFilePicker) {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: filename,
+      id: "ficsync-epub",        // Chrome ties a remembered folder to this
+      startIn: "downloads",
+      types: [{description: "EPUB", accept: {"application/epub+zip": [".epub"]}}],
+    });
+    const writable = await handle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+    return;
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.append(a); a.click(); a.remove();
+  URL.revokeObjectURL(a.href);
+}
+
 $("btnEpub").onclick = async () => {
   clearErr(); busy("downloading epub…");
   try {
     const blob = await (await api("/books/" + state.bookId + "/epub")).blob();
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = state.bookId + ".epub";
-    document.body.append(a); a.click(); a.remove();
-    URL.revokeObjectURL(a.href);
+    await saveEpub(blob, epubFilename(state.bookMeta || {id: state.bookId}));
     play("success");
-  } catch (e) { err("download failed — " + e.message); play("error"); }
+  } catch (e) {
+    // Dismissing the folder picker is a choice, not a failure.
+    if (e && e.name === "AbortError") return;
+    err("download failed — " + e.message);
+    play("error");
+  }
   finally { busy(null); }
 };

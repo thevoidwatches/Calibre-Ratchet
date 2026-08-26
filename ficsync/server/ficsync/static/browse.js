@@ -1,42 +1,98 @@
 // Browse view: filter chips -> calibre search query -> results list.
 "use strict";
-import { $, state, apiJson, err, clearErr, seriesLabel } from "./core.js";
+import { $, state, apiJson, err, clearErr, PICK_FILTER_EVENT } from "./core.js";
+import { seriesLabel } from "./format.js";
+import { buildQuery, describeFilters, isPresetAtom } from "./query.js";
 import { openBook } from "./detail.js";
 
-// Hierarchical columns get a prefix match so a parent finds its descendants
-// ("Science Fiction" hits "Science Fiction.Space Opera"); flat columns get an
-// exact match, since a "." in an author name is punctuation, not hierarchy.
-function filterToQuery(f) {
-  let part;
-  if (f.hierarchical === false) {
-    part = f.field + ':"=' + f.value.replace(/"/g, '\\"') + '"';
-  } else {
-    const esc = f.value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    part = f.field + ':"~^' + esc + '(\\.|$)"';
-  }
-  return f.exclude ? "not " + part : part;
+const COLLAPSE_KEY = "ficsync_filters_collapsed";
+
+export function termCount() {
+  return state.filterGroups.reduce((n, g) => n + g.terms.length, 0);
+}
+
+/** The filter bar: collapse toggle plus the live term count. Collapsed still
+ *  reports the count, because an active filter you cannot see is a good way to
+ *  be confused about why a result list looks empty. */
+export function renderFilterBar() {
+  const n = termCount();
+  const collapsed = localStorage.getItem(COLLAPSE_KEY) === "1";
+  const btn = $("btnToggleFilters");
+  btn.textContent = (collapsed ? "▸" : "▾") + " Filters" + (n ? " (" + n + ")" : "");
+  btn.setAttribute("aria-expanded", String(!collapsed));
+  // With no filters there is nothing to collapse; hiding the empty box keeps
+  // the row from taking up space.
+  $("filterChips").hidden = collapsed || n === 0;
+  $("queryPreview").hidden = collapsed || n === 0;
+  $("btnSaveFilters").disabled = n === 0;
+}
+
+$("btnToggleFilters").onclick = () => {
+  localStorage.setItem(COLLAPSE_KEY,
+                       localStorage.getItem(COLLAPSE_KEY) === "1" ? "0" : "1");
+  renderFilterBar();
+};
+
+/** Saved sets keyed by name, so preset atoms can be expanded. */
+function presetMap() {
+  return Object.fromEntries((state.savedFilters || []).map(f => [f.name, f.groups]));
 }
 
 export function fullQuery() {
-  const parts = state.filters.map(filterToQuery);
-  const free = $("q").value.trim();
-  if (free) parts.push(free);
-  return parts.join(" and ");
+  return buildQuery(state.filterGroups, $("q").value, presetMap());
 }
 
+/** Groups render as boxes of ORed chips, with "and" between the boxes. Each
+ *  box carries its own "+ or" so another alternative can join that group
+ *  rather than starting a new AND. */
 export function renderFilterChips() {
   const box = $("filterChips"); box.innerHTML = "";
-  state.filters.forEach((f, i) => {
-    const c = document.createElement("span");
-    c.className = "chip" + (f.exclude ? " excl" : "");
-    c.append(f.field + ": " + f.value);
-    const x = document.createElement("button");
-    x.textContent = "×";
-    x.onclick = () => { state.filters.splice(i, 1); renderFilterChips(); search(); };
-    c.append(x);
-    box.append(c);
+  state.filterGroups.forEach((group, gi) => {
+    if (gi > 0) {
+      const and = document.createElement("span");
+      and.className = "joiner"; and.textContent = "and";
+      box.append(and);
+    }
+    const wrap = document.createElement("span");
+    wrap.className = "fgroup";
+    group.terms.forEach((t, ti) => {
+      if (ti > 0) {
+        const or = document.createElement("span");
+        or.className = "joiner or"; or.textContent = "or";
+        wrap.append(or);
+      }
+      const c = document.createElement("span");
+      const preset = isPresetAtom(t);
+      c.className = "chip" + (t.exclude ? " excl" : "") + (preset ? " preset" : "");
+      // A preset shows by name — displaying its expansion would defeat the alias.
+      c.append(preset ? t.preset : t.field + ": " + t.value);
+      if (preset && !(state.savedFilters || []).some(f => f.name === t.preset)) {
+        c.classList.add("broken");
+        c.title = "this saved set no longer exists";
+      }
+      const x = document.createElement("button");
+      x.textContent = "×";
+      x.title = "remove";
+      x.onclick = () => {
+        group.terms.splice(ti, 1);
+        // A group with nothing left in it would otherwise render as an empty box.
+        if (!group.terms.length) state.filterGroups.splice(gi, 1);
+        renderFilterChips();
+        search();
+      };
+      c.append(x);
+      wrap.append(c);
+    });
+    const add = document.createElement("button");
+    add.className = "small orbtn";
+    add.textContent = "+ or";
+    add.title = "add an alternative to this group";
+    add.onclick = () => startPicking(gi);
+    wrap.append(add);
+    box.append(wrap);
   });
-  $("queryPreview").textContent = fullQuery();
+  $("queryPreview").textContent = describeFilters(state.filterGroups);
+  renderFilterBar();   // the count and the collapse state live there
 }
 
 export async function search(more = false) {
@@ -68,6 +124,13 @@ export async function search(more = false) {
     state.offset += data.books.length;
     $("btnMore").hidden = !(data.total > state.offset && data.books.length > 0);
   } catch (e) { err("search failed — " + e.message); }
+}
+
+/** Ask picker.js to open the column list. `groupIndex` null means "start a new
+ *  AND group"; a number means "add an alternative to that existing group". */
+function startPicking(groupIndex) {
+  state.pickingGroup = groupIndex;
+  window.dispatchEvent(new CustomEvent(PICK_FILTER_EVENT));
 }
 
 $("searchForm").addEventListener("submit", e => { e.preventDefault(); search(); });

@@ -407,6 +407,84 @@ def events(book_id: int, limit: int = 50,
     return sidecar.recent_events(_lib(library), book_id, limit=limit)
 
 
+MAX_FILTER_NAME = 60
+MAX_FILTER_TERMS = 100
+
+
+def _clean_filter_groups(groups) -> list[dict]:
+    """Validate and normalise a saved filter's structure.
+
+    These come back out of the database and are turned into a calibre query by
+    the UI, so only the known shape is stored — unrecognised keys are dropped
+    rather than round-tripped.
+    """
+    if not isinstance(groups, list):
+        raise HTTPException(400, "groups must be a list")
+    cleaned, total = [], 0
+    for group in groups:
+        terms_in = (group or {}).get("terms") if isinstance(group, dict) else None
+        if not isinstance(terms_in, list):
+            raise HTTPException(400, "each group needs a 'terms' list")
+        terms = []
+        for t in terms_in:
+            if not isinstance(t, dict):
+                raise HTTPException(400, "each term must be an object")
+            # An atom is either a reference to another saved set, or a term.
+            preset = t.get("preset")
+            if preset is not None:
+                if not isinstance(preset, str) or not preset.strip():
+                    raise HTTPException(400, "'preset' must be a non-empty name")
+                terms.append({"preset": preset, "exclude": bool(t.get("exclude"))})
+                total += 1
+                continue
+            field, value = t.get("field"), t.get("value")
+            if not isinstance(field, str) or not field.strip():
+                raise HTTPException(400, "each term needs a non-empty 'field'")
+            if not isinstance(value, str) or not value.strip():
+                raise HTTPException(400, "each term needs a non-empty 'value'")
+            terms.append({"field": field, "value": value,
+                          "exclude": bool(t.get("exclude")),
+                          "hierarchical": t.get("hierarchical") is not False})
+            total += 1
+        if terms:
+            cleaned.append({"terms": terms})
+    if total > MAX_FILTER_TERMS:
+        raise HTTPException(400, f"too many terms (max {MAX_FILTER_TERMS})")
+    if not cleaned:
+        raise HTTPException(400, "nothing to save: no filter terms")
+    return cleaned
+
+
+@app.get("/filters", dependencies=AUTH)
+def list_filters(library: str | None = LIB_Q) -> dict:
+    return {"filters": sidecar.list_filters(_lib(library))}
+
+
+@app.put("/filters/{name}", dependencies=AUTH)
+def save_filter(name: str, groups: list = Body(embed=True),
+                library: str | None = LIB_Q) -> dict:
+    name = name.strip()
+    if not name:
+        raise HTTPException(400, "filter name is required")
+    if len(name) > MAX_FILTER_NAME:
+        raise HTTPException(400, f"name too long (max {MAX_FILTER_NAME})")
+    cleaned = _clean_filter_groups(groups)
+    lib = _lib(library)
+    # A set that references itself would expand forever. The UI blocks the
+    # obvious case, but the check belongs where the data is stored.
+    if any(t.get("preset") == name for g in cleaned for t in g["terms"]):
+        raise HTTPException(400, f"'{name}' cannot reference itself")
+    sidecar.save_filter(lib, name, cleaned)
+    return {"name": name, "groups": cleaned}
+
+
+@app.delete("/filters/{name}", dependencies=AUTH)
+def delete_filter(name: str, library: str | None = LIB_Q) -> dict:
+    if not sidecar.delete_filter(_lib(library), name.strip()):
+        raise HTTPException(404, f"no saved filter named '{name}'")
+    return {"deleted": name}
+
+
 @app.get("/categories", dependencies=AUTH)
 def categories(library: str | None = LIB_Q):
     """Tag-browser data (tag/custom-column vocabularies) for the chip UI."""

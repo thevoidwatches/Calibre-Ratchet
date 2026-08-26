@@ -1,6 +1,7 @@
 // Book detail: metadata chip editors + audit events.
 "use strict";
-import { $, state, api, apiJson, err, clearErr, show, isWritable, seriesLabel } from "./core.js";
+import { $, state, api, apiJson, err, clearErr, show, isWritable } from "./core.js";
+import { seriesLabel } from "./format.js";
 import { loadCats, loadCatItems } from "./picker.js";
 import { play } from "./sfx.js";
 import { setUpdateAvailable } from "./actions.js";
@@ -36,6 +37,7 @@ export async function openBook(id) {
   try {
     const data = await apiJson("/books/" + id);
     const m = data.calibre || {};
+    state.bookMeta = m;          // the epub download names the file from this
     $("dTitle").textContent = m.title || ("book " + id);
     const series = seriesLabel(m);
     $("dSeries").textContent = series;

@@ -46,7 +46,16 @@
 
   <!-- browse -->
   <section id="vBrowse" hidden>
-    <div id="filterChips"></div>
+    <div class="row filterbar">
+      <button type="button" class="small" id="btnToggleFilters"
+              aria-expanded="true" aria-controls="filterChips">&#9662; Filters</button>
+      <select id="savedFilters" class="small" aria-label="saved filter sets">
+        <option value="">Saved&hellip;</option>
+      </select>
+      <button type="button" class="small" id="btnSaveFilters" disabled>Save</button>
+      <button type="button" class="small" id="btnDeleteFilters" hidden>Delete</button>
+    </div>
+    <div id="filterChips" hidden></div>
     <form id="searchForm" class="row">
       <button type="button" id="btnAddFilter" class="icon"
               title="add filter" aria-label="add filter">&#9776;</button>

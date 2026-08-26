@@ -100,6 +100,24 @@ button.icon { min-width: 44px; padding: 8px 10px; font-size: 1.1rem; line-height
 #results li { border: none; border-radius: 0; margin: 0; }
 #results li:nth-child(even) { background: var(--stripe); }
 
+.filterbar { gap: 6px; margin: 6px 0 2px; }
+.filterbar select { min-height: 34px; padding: 2px 6px; font-size: 0.9rem;
+                    flex: 1; min-width: 90px; }
+
+/* Filter groups: terms inside a box are ORed, boxes are ANDed. The box gives
+   the OR its visual scope so "A or B and C" cannot be misread. */
+#filterChips { display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+               margin: 6px 0; }
+.fgroup { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px;
+          border: 1px dashed var(--fg); border-radius: 18px; padding: 2px 6px; }
+.joiner { font-size: 0.8rem; font-style: italic; text-transform: uppercase;
+          padding: 0 2px; color: var(--muted); }
+.chip.preset { border-style: double; border-width: 3px; font-weight: bold; }
+.chip.broken { text-decoration: line-through; color: var(--muted); }
+
+.orbtn { min-height: 28px; padding: 2px 8px; font-size: 0.8rem;
+         border-width: 1px; border-style: dashed; }
+
 .sortrow { gap: 6px; }
 .sortrow select { min-height: 38px; padding: 4px 6px; flex: 1; min-width: 120px; }
 .sortrow label { flex: 0 0 auto; }
