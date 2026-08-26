@@ -1,0 +1,22 @@
+# Optional FanFicFare config for ficsync (point [fanficfare].config_file at it).
+# Kept separate from any personal.ini your desktop plugin uses so the two can't
+# fight. Start minimal; add site sections only when needed.
+
+[defaults]
+# Be polite; you're hitting sites from an automated service.
+slow_down_sleep_time: 2
+
+# Uncomment if your libraries include adult-flagged stories:
+#is_adult: true
+
+# Nice with Moon+: mark newly added chapters "(new)" in the ToC.
+# Remove marks later with `fanficfare --unnew file.epub` if they bother you.
+#mark_new_chapters: true
+
+#[archiveofourown.org]
+# For restricted works. Consider app-specific handling; this file is plaintext.
+#username: YOUR_AO3_NAME
+#password: YOUR_AO3_PASS
+
+#[www.royalroad.com]
+# (rarely needs anything)

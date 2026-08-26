@@ -1,0 +1,10 @@
+# Python 3.11+ required (stdlib tomllib)
+fastapi>=0.110
+uvicorn[standard]>=0.29
+httpx>=0.27
+# Pin FanFicFare to a version you've verified: the safety design was checked
+# against 4.60.0 source (chapterurl metas, count-guard behavior, zchapters JSON).
+# Newer versions are almost certainly fine, but bump deliberately, not by accident.
+FanFicFare>=4.60.0
+# dev:
+pytest>=8

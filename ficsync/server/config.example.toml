@@ -1,0 +1,27 @@
+[service]
+host = "127.0.0.1"        # bind to your Tailscale IP, or keep 127.0.0.1 + `tailscale serve`
+port = 8484
+auth_token = "CHANGE-ME-long-random-string"
+data_dir = "~/.local/share/ficsync"
+backups_keep = 5           # pre-update epub backups kept per book
+
+[calibre]
+base_url = "http://127.0.0.1:8080"
+library_id = ""            # empty = server's default library; else the id from
+                           # /ajax/library-info (usually the library folder name)
+username = ""              # if your content server requires auth
+password = ""
+identifier_key = "url"     # where the FFF plugin stores story URLs (fallback only;
+                           # the epub's dc:source is used first)
+writable_fields = ["tags", "rating", "#*"]   # fnmatch patterns for POST /fields
+
+[fanficfare]
+binary = "fanficfare"
+config_file = ""           # optional: path to a personal.ini (passed with -c)
+extra_options = []         # e.g. ["-o", "is_adult=true"]
+non_append_updates = "allow"   # "refuse" to require manual handling of
+                               # mid-list insertions/reorders
+timeout_seconds = 1800
+
+[politeness]
+min_seconds_between_site_requests = 5.0
