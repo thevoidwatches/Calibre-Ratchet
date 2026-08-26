@@ -115,15 +115,53 @@ async function saveField(field, value) {
   play("success");
 }
 
+// Which editors start open before this device has an opinion. Reading list is
+// the one changed most often after finishing a book; genre and tags are set
+// once and rarely revisited.
+const DEFAULT_OPEN = new Set(["#readinglist"]);
+const openKey = field => "ficsync_field_open_" + field;
+
+export function fieldIsOpen(field) {
+  const stored = localStorage.getItem(openKey(field));
+  if (stored === "1") return true;
+  if (stored === "0") return false;
+  return DEFAULT_OPEN.has(field);
+}
+
+/** What the section shows when it is closed, so a collapsed field still tells
+ *  you what it is set to. */
+function summaryOf(col) {
+  const v = col.multi ? (col.value || []).join(" · ") : (col.value || "");
+  return v || "—";
+}
+
 function renderEditors(meta) {
   const host = $("dFields");
   for (const col of editableColumns(meta)) {
-    const fs = document.createElement("div"); fs.className = "fieldset";
-    const h = document.createElement("h3"); h.textContent = col.label;
-    fs.append(h);
+    // <details> rather than a button: open/close works without script, and
+    // keyboard and screen-reader behaviour come for free.
+    const fs = document.createElement("details");
+    fs.className = "fieldset";
+    fs.open = fieldIsOpen(col.field);
+
+    const head = document.createElement("summary");
+    const label = document.createElement("span");
+    label.className = "flabel";
+    label.textContent = col.label;
+    const current = document.createElement("span");
+    current.className = "fvalue muted small";
+    current.textContent = summaryOf(col);
+    head.append(label, current);
+    fs.append(head);
+
     if (col.multi) renderMultiEditor(fs, col);
     else renderSingleEditor(fs, col);
     host.append(fs);
+
+    // Attached after the initial state is set, so opening this book does not
+    // record a preference the reader never expressed.
+    fs.addEventListener("toggle", () =>
+      localStorage.setItem(openKey(col.field), fs.open ? "1" : "0"));
   }
 }
 
