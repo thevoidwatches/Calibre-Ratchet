@@ -54,6 +54,13 @@ CREATE TABLE IF NOT EXISTS events(
     detail     TEXT                              -- JSON blob
 );
 CREATE INDEX IF NOT EXISTS idx_events_book ON events(library_id, book_id, id);
+CREATE TABLE IF NOT EXISTS saved_filters(
+    library_id TEXT NOT NULL DEFAULT '',
+    name       TEXT NOT NULL,
+    groups     TEXT NOT NULL,               -- JSON: [{"terms":[...]}, ...]
+    saved_at   TEXT NOT NULL,
+    PRIMARY KEY(library_id, name)
+);
 """
 
 
@@ -135,3 +142,42 @@ class Sidecar:
             out.append({"ts": ts, "library_id": lib, "book_id": bid,
                         "kind": kind, "detail": detail})
         return out
+
+    # -- saved filters ------------------------------------------------------
+    #
+    # Kept on the server rather than in each device's localStorage so a set
+    # saved on the phone is there on the ereader. Scoped per library because a
+    # filter naming '#genre' is meaningless in a library without that column.
+
+    def save_filter(self, library_id: str, name: str, groups: list) -> None:
+        with self._lock, self._conn:
+            self._conn.execute(
+                "INSERT INTO saved_filters(library_id, name, groups, saved_at) "
+                "VALUES(?,?,?,?) "
+                "ON CONFLICT(library_id, name) DO UPDATE SET "
+                "groups=excluded.groups, saved_at=excluded.saved_at",
+                (library_id, name, json.dumps(groups, ensure_ascii=False), _now()),
+            )
+
+    def list_filters(self, library_id: str) -> list[dict]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT name, groups, saved_at FROM saved_filters "
+                "WHERE library_id=? ORDER BY name COLLATE NOCASE",
+                (library_id,),
+            ).fetchall()
+        out = []
+        for name, groups, saved_at in rows:
+            try:
+                parsed = json.loads(groups)
+            except json.JSONDecodeError:
+                continue
+            out.append({"name": name, "groups": parsed, "saved_at": saved_at})
+        return out
+
+    def delete_filter(self, library_id: str, name: str) -> bool:
+        with self._lock, self._conn:
+            cur = self._conn.execute(
+                "DELETE FROM saved_filters WHERE library_id=? AND name=?",
+                (library_id, name))
+        return cur.rowcount > 0

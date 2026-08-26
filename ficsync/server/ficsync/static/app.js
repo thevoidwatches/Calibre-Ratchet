@@ -1,17 +1,19 @@
 // Entry point: nav wiring, token handling, boot.
 "use strict";
 import { $, state, setToken, setLibrary, setSort, apiJson, clearErr, show } from "./core.js";
-import { renderFilterChips, search } from "./browse.js";
+import { renderFilterChips, renderFilterBar, search } from "./browse.js";
 import "./picker.js";     // side effect: filter-picker button handlers
 import "./actions.js";    // side effect: check/update/epub button handlers
 import { initSfx, play } from "./sfx.js";
 import { initTheme } from "./theme.js";
+import { initFilters, loadSavedFilters } from "./filters.js";
 
 document.querySelectorAll("[data-nav]").forEach(b =>
   b.addEventListener("click", () => show(b.dataset.nav)));
 
 initTheme();
 initSfx();
+initFilters();
 
 $("btnSettings").onclick = () => { $("tokenInput").value = state.token; show("token"); };
 $("btnSaveToken").onclick = () => {
@@ -65,6 +67,7 @@ async function loadLibraries() {
     setLibrary(sel.value);        // persisted; this device reopens here
     $("q").value = "";
     renderFilterChips();
+    loadSavedFilters();       // saved sets are per library
     show("browse");
     search();
   };
@@ -118,6 +121,8 @@ async function boot({announce = false} = {}) {
   await loadLibraries();
   show("browse");
   renderFilterChips();
+  renderFilterBar();
+  loadSavedFilters();
   search();
 }
 boot();

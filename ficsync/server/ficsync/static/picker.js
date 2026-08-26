@@ -16,8 +16,12 @@
 //        read in one request: node "#genre.Science Fiction" holding item
 //        "Space Opera" is the stored value "Science Fiction.Space Opera".
 "use strict";
-import { $, state, apiJson, err, clearErr, show } from "./core.js";
+import { $, state, apiJson, err, clearErr, show, PICK_FILTER_EVENT } from "./core.js";
 import { renderFilterChips, search } from "./browse.js";
+import { wouldCycle } from "./query.js";
+
+// Pseudo-column in the picker listing the saved sets themselves.
+const PRESET_COL = "Saved sets";
 
 // Columns where "." in a value is punctuation, not hierarchy (author names
 // like "R.A. Scott", series with dotted titles).
@@ -102,7 +106,7 @@ export async function loadCatItems(name) {
   return values;
 }
 
-$("btnAddFilter").onclick = async () => {
+async function openColumnPicker() {
   clearErr();
   await loadCats();
   const ul = $("colList"); ul.innerHTML = "";
@@ -117,8 +121,19 @@ $("btnAddFilter").onclick = async () => {
     li.onclick = () => pickValue(name);
     ul.append(li);
   }
+  if ((state.savedFilters || []).length) {
+    const li = document.createElement("li");
+    li.textContent = PRESET_COL;
+    li.onclick = () => pickPreset();
+    ul.append(li);
+  }
   show("pickcol");
-};
+}
+
+// The toolbar button starts a fresh AND group; the "+ or" buttons on existing
+// groups come through the event with a group index already set.
+$("btnAddFilter").onclick = () => { state.pickingGroup = null; openColumnPicker(); };
+window.addEventListener(PICK_FILTER_EVENT, openColumnPicker);
 
 export function lookupOf(colName) {
   const cat = (state.cats || {})[colName];
@@ -137,14 +152,60 @@ async function pickValue(colName) {
   renderValTree(items, isHierarchical(colName));
 }
 
+/** Choose a saved set to drop in as a single atom. */
+function pickPreset() {
+  state.pickingCol = PRESET_COL;
+  $("pickValTitle").textContent = PRESET_COL;
+  $("freeValue").value = "";
+  const box = $("valTree");
+  box.innerHTML = "";
+  const ul = document.createElement("ul"); ul.className = "tree";
+  for (const f of state.savedFilters || []) {
+    const li = document.createElement("li");
+    const a = document.createElement("span");
+    a.className = "node chip preset";
+    a.textContent = f.name;
+    a.onclick = () => addPresetAtom(f.name);
+    li.append(a); ul.append(li);
+  }
+  box.append(ul);
+  show("pickval");
+}
+
+function addPresetAtom(name) {
+  // Editing a set that already contains this one would make the pair expand
+  // into each other; the query builder stops it, but refusing up front is
+  // clearer than a filter that silently matches nothing.
+  const editing = $("savedFilters").value;
+  if (editing) {
+    const presets = Object.fromEntries(
+      (state.savedFilters || []).map(f => [f.name, f.groups]));
+    if (wouldCycle(presets, editing, name)) {
+      err(`"${name}" already refers to "${editing}", so adding it here would ` +
+          "make the two refer to each other.");
+      show("browse");
+      return;
+    }
+  }
+  addAtom({preset: name, exclude: currentMode()});
+}
+
 function currentMode() {
   return document.querySelector('input[name="mode"]:checked').value === "exclude";
 }
 
 function addFilter(value) {
-  state.filters.push({field: lookupOf(state.pickingCol), value,
-                      exclude: currentMode(),
-                      hierarchical: isHierarchical(state.pickingCol)});
+  addAtom({field: lookupOf(state.pickingCol), value,
+           exclude: currentMode(),
+           hierarchical: isHierarchical(state.pickingCol)});
+}
+
+function addAtom(term) {
+  const gi = state.pickingGroup;
+  const group = (gi === null || gi === undefined) ? null : state.filterGroups[gi];
+  if (group) group.terms.push(term);            // another alternative (OR)
+  else state.filterGroups.push({terms: [term]});  // a new conjunct (AND)
+  state.pickingGroup = null;
   renderFilterChips();
   show("browse");
   search();

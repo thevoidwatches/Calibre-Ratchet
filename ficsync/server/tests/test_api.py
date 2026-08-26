@@ -7,6 +7,8 @@ exist before the import — hence the module-level setup.
 import os
 import re
 import sys
+
+import pytest
 import tempfile
 from pathlib import Path
 
@@ -210,3 +212,104 @@ def test_header_centres_the_library_selector():
     assert 'id="librarySelect"' in before_controls
     css = client.get("/ui/ui.css").text
     assert "grid-template-columns: 1fr auto 1fr" in css
+
+
+def test_epub_save_uses_a_folder_picker_where_one_exists():
+    """Desktop Chromium can remember a destination folder; Android cannot, so
+    the anchor fallback has to stay."""
+    js = client.get("/ui/actions.js").text
+    assert "showSaveFilePicker" in js and 'id: "ficsync-epub"' in js
+    assert "a.download = filename" in js          # fallback still present
+    assert 'e.name === "AbortError"' in js        # cancelling is not an error
+
+
+def test_saved_filters_roundtrip_and_are_scoped_per_library():
+    groups = [{"terms": [{"field": "#readinglist", "value": "Rainy Day"}]}]
+    r = client.put("/filters/Rainy", json={"groups": groups},
+                   params={"library": "Serials"}, headers=TOK)
+    assert r.status_code == 200
+
+    got = client.get("/filters", params={"library": "Serials"}, headers=TOK).json()
+    assert [f["name"] for f in got["filters"]] == ["Rainy"]
+    assert got["filters"][0]["groups"] == [
+        {"terms": [{"field": "#readinglist", "value": "Rainy Day",
+                    "exclude": False, "hierarchical": True}]}]
+
+    other = client.get("/filters", params={"library": "Books"}, headers=TOK).json()
+    assert other["filters"] == []
+
+    assert client.delete("/filters/Rainy", params={"library": "Serials"},
+                         headers=TOK).status_code == 200
+    assert client.delete("/filters/Rainy", params={"library": "Serials"},
+                         headers=TOK).status_code == 404
+
+
+def test_saving_a_filter_overwrites_the_same_name():
+    a = [{"terms": [{"field": "tags", "value": "a"}]}]
+    b = [{"terms": [{"field": "tags", "value": "b"}]}]
+    client.put("/filters/Dup", json={"groups": a}, headers=TOK)
+    client.put("/filters/Dup", json={"groups": b}, headers=TOK)
+    names = [f["name"] for f in client.get("/filters", headers=TOK).json()["filters"]]
+    assert names.count("Dup") == 1
+    saved = [f for f in client.get("/filters", headers=TOK).json()["filters"]
+             if f["name"] == "Dup"][0]
+    assert saved["groups"][0]["terms"][0]["value"] == "b"
+    client.delete("/filters/Dup", headers=TOK)
+
+
+@pytest.mark.parametrize("groups", [
+    "not-a-list",
+    [{"no_terms": []}],
+    [{"terms": [{"field": "", "value": "x"}]}],
+    [{"terms": [{"field": "tags"}]}],
+    [{"terms": ["not-an-object"]}],
+    [],                                    # nothing to save
+])
+def test_malformed_filters_are_rejected(groups):
+    # 422 where FastAPI's own type check catches it first (a non-list), 400
+    # from our structural validation; either way nothing malformed is stored.
+    r = client.put("/filters/Bad", json={"groups": groups}, headers=TOK)
+    assert r.status_code in (400, 422), r.status_code
+    assert "Bad" not in [f["name"] for f in
+                         client.get("/filters", headers=TOK).json()["filters"]]
+
+
+def test_unknown_term_keys_are_not_stored():
+    client.put("/filters/Clean", json={"groups": [
+        {"terms": [{"field": "tags", "value": "x", "evil": "payload"}]}]}, headers=TOK)
+    saved = [f for f in client.get("/filters", headers=TOK).json()["filters"]
+             if f["name"] == "Clean"][0]
+    assert set(saved["groups"][0]["terms"][0]) == {"field", "value", "exclude", "hierarchical"}
+    client.delete("/filters/Clean", headers=TOK)
+
+
+def test_filter_name_length_is_bounded():
+    r = client.put("/filters/" + "x" * 200,
+                   json={"groups": [{"terms": [{"field": "tags", "value": "x"}]}]},
+                   headers=TOK)
+    assert r.status_code == 400
+
+
+def test_preset_references_are_accepted_and_normalised():
+    client.put("/filters/Base", json={"groups": [
+        {"terms": [{"field": "tags", "value": "x"}]}]}, headers=TOK)
+    r = client.put("/filters/Uses", json={"groups": [
+        {"terms": [{"preset": "Base"}, {"field": "tags", "value": "y"}]}]}, headers=TOK)
+    assert r.status_code == 200
+    saved = [f for f in client.get("/filters", headers=TOK).json()["filters"]
+             if f["name"] == "Uses"][0]
+    assert saved["groups"][0]["terms"][0] == {"preset": "Base", "exclude": False}
+    client.delete("/filters/Uses", headers=TOK)
+    client.delete("/filters/Base", headers=TOK)
+
+
+def test_a_set_cannot_reference_itself():
+    r = client.put("/filters/Loop", json={"groups": [
+        {"terms": [{"preset": "Loop"}]}]}, headers=TOK)
+    assert r.status_code == 400
+
+
+def test_empty_preset_name_is_rejected():
+    r = client.put("/filters/Bad2", json={"groups": [
+        {"terms": [{"preset": "  "}]}]}, headers=TOK)
+    assert r.status_code == 400
