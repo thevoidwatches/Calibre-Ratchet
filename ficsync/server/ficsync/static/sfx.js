@@ -1,7 +1,7 @@
 // Outcome sounds. Files are dropped into static/sfx/ by hand (see its
 // README); each is optional, and a missing one simply stays silent.
 "use strict";
-import { $ } from "./core.js";
+import { $, UNAUTHORIZED_EVENT } from "./core.js";
 
 const MUTE_KEY = "ficsync_muted";
 const NAMES = ["success", "refused", "error"];
@@ -53,8 +53,9 @@ export function playForDecision(d) {
 
 function render() {
   const btn = $("btnMute");
-  btn.textContent = muted ? "\u{1F507}" : "\u{1F50A}";
-  btn.title = muted ? "sounds off" : "sounds on";
+  // Labelled by the action the tap performs, not the current state.
+  btn.textContent = muted ? "Unmute" : "Mute";
+  btn.title = muted ? "sounds are off" : "sounds are on";
   btn.setAttribute("aria-pressed", String(muted));
 }
 
@@ -74,6 +75,11 @@ function warm() {
 export function initSfx() {
   document.addEventListener("pointerdown", warm, {once: true});
   document.addEventListener("keydown", warm, {once: true});
+
+  // A rejected token is a refusal like any other. On a cold load with a bad
+  // stored token this fires before the first tap, so the browser may swallow
+  // it; submitting a wrong token by hand always sounds.
+  window.addEventListener(UNAUTHORIZED_EVENT, () => play("refused"));
 
   const btn = $("btnMute");
   if (!btn) return;

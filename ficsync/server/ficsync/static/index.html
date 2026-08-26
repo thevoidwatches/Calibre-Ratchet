@@ -6,24 +6,42 @@
 <title>Ratchet</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="ui.css">
-<meta name="theme-color" content="#000000">
+<meta name="theme-color" content="#ffffff">
+<script>
+// Inline and before first paint on purpose: loading the theme from a module at
+// the end of <body> would flash a white page at dark-mode users on every load.
+(function () {
+  try {
+    var stored = localStorage.getItem("ficsync_theme");
+    var dark = stored === "dark" || (stored !== "light" &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches);
+    document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+  } catch (e) { /* private mode: fall through to the light default */ }
+})();
+</script>
 </head>
 <body>
 <header>
   <h1>Ratchet</h1>
-  <select id="librarySelect" aria-label="library"></select>
-  <button class="small" id="btnMute" aria-pressed="false">&#128266;</button>
-  <button class="small" id="btnSettings" title="token">&#9881;</button>
+  <div class="controls">
+    <select id="librarySelect" aria-label="library" disabled>
+      <!-- Replaced once /libraries answers; until then (and on the token
+           screen, which never gets that far) this is what shows. -->
+      <option value="">Library</option>
+    </select>
+    <button class="small" id="btnTheme" aria-pressed="false">Dark</button>
+    <button class="small" id="btnMute" aria-pressed="false">Mute</button>
+    <button class="small icon" id="btnSettings" title="token">&#9881;</button>
+  </div>
 </header>
 <main>
   <div id="errBox" class="err" hidden></div>
 
   <!-- token setup -->
   <section id="vToken" hidden>
-    <p>Enter the ficsync API token (from config.toml). Stored only in this
-    browser.</p>
+    <p>Enter your Ratchet token.</p>
     <div class="row"><input type="text" id="tokenInput" placeholder="token">
-    <button class="primary" id="btnSaveToken">Save</button></div>
+    <button class="primary" id="btnSaveToken">Login</button></div>
   </section>
 
   <!-- browse -->

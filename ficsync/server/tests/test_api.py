@@ -5,6 +5,7 @@ exist before the import — hence the module-level setup.
 """
 
 import os
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -121,3 +122,52 @@ def test_cover_endpoint_requires_token_and_accepts_size():
     # calibre is unreachable here, so a clean failure (not a 422/500) is the bar.
     r = client.get("/books/1/cover", params={"sz": "160x213"}, headers=TOK)
     assert r.status_code in (404, 502)
+
+
+def test_theme_module_is_served():
+    assert client.get("/ui/theme.js").status_code == 200
+
+
+def test_theme_is_applied_before_first_paint():
+    """The stamp must be inline in <head>, not deferred to a module, or a
+    dark-mode device flashes a white page on every load."""
+    html = client.get("/ui/").text
+    head = html.split("</head>")[0]
+    assert "ficsync_theme" in head
+    assert "data-theme" in head
+
+
+def test_stylesheet_defines_both_palettes():
+    css = client.get("/ui/ui.css").text
+    assert ":root {" in css and '[data-theme="dark"]' in css
+    for token in ["--bg", "--fg", "--muted", "--faint", "--shade-1", "--shade-2"]:
+        assert css.count(token + ":") >= 2, token   # defined in both themes
+
+
+def test_library_select_has_a_placeholder_before_login():
+    """The token screen never reaches /libraries, so the selector must not
+    render as an empty box."""
+    html = client.get("/ui/").text
+    sel = html.split('id="librarySelect"')[1].split("</select>")[0]
+    assert "disabled" in html.split('id="librarySelect"')[0][-80:] or "disabled" in sel
+    assert "Library" in sel
+
+
+def test_unauthorized_sound_is_wired_without_a_module_cycle():
+    """core.js announces a 401; sfx.js listens. sfx.js may import core.js, but
+    never the other way around, or the modules become circular."""
+    core = client.get("/ui/core.js").text
+    sfx = client.get("/ui/sfx.js").text
+    assert "UNAUTHORIZED_EVENT" in core and "dispatchEvent" in core
+    assert "UNAUTHORIZED_EVENT" in sfx and 'play("refused")' in sfx
+    # An *import* of sfx.js, not a mention of it in a comment.
+    assert not re.search(r"""^\s*import[^
+]*["']\./sfx\.js["']""", core, re.M)
+
+
+def test_login_success_sound_is_only_for_a_deliberate_sign_in():
+    """boot() re-runs on every page load with a stored token; the chime must
+    be tied to submitting one, not to opening the app."""
+    app = client.get("/ui/app.js").text
+    assert "boot({announce: true})" in app
+    assert "if (announce) play(\"success\")" in app
