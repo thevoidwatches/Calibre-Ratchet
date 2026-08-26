@@ -38,6 +38,14 @@ class CalibreError(Exception):
 
 
 class CalibreClient:
+    """One client, many libraries.
+
+    calibre's routes all take an optional trailing `{library_id=None}`, so a
+    library is chosen per call rather than per client. Every method takes an
+    optional `library_id`; passing None uses the configured default (which may
+    itself be "", meaning the content server's own default library).
+    """
+
     def __init__(self, base_url: str, library_id: str = "",
                  username: str = "", password: str = "", timeout: float = 120.0):
         self.base = base_url.rstrip("/")
@@ -48,19 +56,28 @@ class CalibreClient:
 
     # -- plumbing ----------------------------------------------------------
 
-    def _lib_suffix(self) -> str:
-        return f"/{self.lib}" if self.lib else ""
+    def _lib_suffix(self, library_id: str | None = None) -> str:
+        lib = self.lib if library_id is None else library_id.strip()
+        return f"/{lib}" if lib else ""
 
     def _request(self, method: str, path: str, **kw) -> httpx.Response:
         url = self.base + path
-        r = self._client.request(method, url, auth=self._auth_choice, **kw)
+        try:
+            r = self._client.request(method, url, auth=self._auth_choice, **kw)
+        except httpx.HTTPError as e:
+            # Server down, DNS gone, timeout: report it as a calibre problem so
+            # callers return a clean 502 instead of an unhandled traceback.
+            raise CalibreError(f"cannot reach calibre at {self.base}: {e}") from e
         if r.status_code == 401 and self._creds and self._auth_choice is None:
             challenge = r.headers.get("www-authenticate", "")
             if challenge.lower().startswith("digest"):
                 self._auth_choice = httpx.DigestAuth(*self._creds)
             else:
                 self._auth_choice = httpx.BasicAuth(*self._creds)
-            r = self._client.request(method, url, auth=self._auth_choice, **kw)
+            try:
+                r = self._client.request(method, url, auth=self._auth_choice, **kw)
+            except httpx.HTTPError as e:
+                raise CalibreError(f"cannot reach calibre at {self.base}: {e}") from e
         if r.status_code >= 400:
             raise CalibreError(f"{method} {path} -> {r.status_code}: {r.text[:300]}")
         return r
@@ -70,43 +87,72 @@ class CalibreClient:
     def library_info(self) -> dict:
         return self._request("GET", "/ajax/library-info").json()
 
+    def libraries(self) -> list[dict]:
+        """[{id, name, is_default}] for every library the server exposes."""
+        info = self.library_info()
+        default = info.get("default_library") or ""
+        return [{"id": lid, "name": name, "is_default": lid == default}
+                for lid, name in (info.get("library_map") or {}).items()]
+
     def search(self, query: str = "", num: int = 200, offset: int = 0,
-               sort: str = "timestamp", sort_order: str = "desc") -> dict:
+               sort: str = "timestamp", sort_order: str = "desc",
+               library_id: str | None = None) -> dict:
         params = {"query": query, "num": num, "offset": offset,
                   "sort": sort, "sort_order": sort_order}
-        return self._request("GET", f"/ajax/search{self._lib_suffix()}",
+        return self._request("GET", f"/ajax/search{self._lib_suffix(library_id)}",
                              params=params).json()
 
-    def book(self, book_id: int) -> dict:
-        return self._request("GET", f"/ajax/book/{book_id}{self._lib_suffix()}").json()
+    def book(self, book_id: int, library_id: str | None = None) -> dict:
+        return self._request(
+            "GET", f"/ajax/book/{book_id}{self._lib_suffix(library_id)}").json()
 
-    def books(self, ids: list[int]) -> dict[str, Any]:
+    def books(self, ids: list[int], library_id: str | None = None) -> dict[str, Any]:
         params = {"ids": ",".join(str(i) for i in ids)}
-        return self._request("GET", f"/ajax/books{self._lib_suffix()}",
+        return self._request("GET", f"/ajax/books{self._lib_suffix(library_id)}",
                              params=params).json()
 
-    def categories(self) -> Any:
-        return self._request("GET", f"/ajax/categories{self._lib_suffix()}").json()
+    def categories(self, library_id: str | None = None) -> Any:
+        return self._request(
+            "GET", f"/ajax/categories{self._lib_suffix(library_id)}").json()
 
-    def download_format(self, book_id: int, fmt: str = "EPUB") -> bytes:
-        return self._request("GET",
-                             f"/get/{fmt}/{book_id}{self._lib_suffix()}").content
+    def ajax(self, path: str, params: dict | None = None) -> Any:
+        """GET an /ajax/... path handed back inside another ajax response (e.g. the per-category item URLs inside /ajax/categories)."""
+        return self._request("GET", path, params=params or {}).json()
+
+    def download_format(self, book_id: int, fmt: str = "EPUB",
+                        library_id: str | None = None) -> bytes:
+        return self._request(
+            "GET", f"/get/{fmt}/{book_id}{self._lib_suffix(library_id)}").content
+
+    def cover(self, book_id: int, library_id: str | None = None,
+              size: str = "") -> tuple[bytes, str]:
+        """Cover thumbnail bytes and content type.
+
+        /get/thumb scales server-side (`sz=WxH`), so the phone pulls a couple
+        of KB per row instead of the full-size cover.
+        """
+        params = {"sz": size} if size else {}
+        r = self._request("GET", f"/get/thumb/{book_id}{self._lib_suffix(library_id)}",
+                          params=params)
+        return r.content, r.headers.get("content-type", "image/jpeg")
 
     # -- writes ------------------------------------------------------------
 
-    def set_fields(self, book_id: int, changes: dict) -> dict:
+    def set_fields(self, book_id: int, changes: dict,
+                   library_id: str | None = None) -> dict:
         payload = {"changes": changes, "loaded_book_ids": []}
         return self._request("POST",
-                             f"/cdb/set-fields/{book_id}{self._lib_suffix()}",
+                             f"/cdb/set-fields/{book_id}{self._lib_suffix(library_id)}",
                              json=payload).json()
 
-    def replace_epub(self, book_id: int, epub_bytes: bytes) -> dict:
+    def replace_epub(self, book_id: int, epub_bytes: bytes,
+                     library_id: str | None = None) -> dict:
         b64 = base64.b64encode(epub_bytes).decode("ascii")
         changes = {"added_formats": [{
             "ext": "epub",
             "data_url": "data:application/epub+zip;base64," + b64,
         }]}
-        return self.set_fields(book_id, changes)
+        return self.set_fields(book_id, changes, library_id)
 
     # -- helpers -----------------------------------------------------------
 

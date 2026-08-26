@@ -23,6 +23,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .epub import Chapter
+from .titles import title_key
 
 
 @dataclass
@@ -66,7 +67,9 @@ def compute_diff(local: list[Chapter], remote: list[Chapter]) -> Diff:
     retitled = []
     for k in lset & rset:
         lt, rt = local_by_key[k].title, remote_by_key[k].title
-        if lt and rt and lt != rt:
+        # Compared on the folded form so quote/dash style changes stay quiet;
+        # the report shows the titles as each side actually spells them.
+        if lt and rt and title_key(lt) != title_key(rt):
             retitled.append({"key": k, "old_title": lt, "new_title": rt})
 
     is_clean_append = lkeys == rkeys[: len(lkeys)]

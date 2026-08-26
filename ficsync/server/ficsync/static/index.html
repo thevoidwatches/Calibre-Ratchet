@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ratchet</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="ui.css">
+<meta name="theme-color" content="#000000">
+</head>
+<body>
+<header>
+  <h1>Ratchet</h1>
+  <select id="librarySelect" aria-label="library"></select>
+  <button class="small" id="btnMute" aria-pressed="false">&#128266;</button>
+  <button class="small" id="btnSettings" title="token">&#9881;</button>
+</header>
+<main>
+  <div id="errBox" class="err" hidden></div>
+
+  <!-- token setup -->
+  <section id="vToken" hidden>
+    <p>Enter the ficsync API token (from config.toml). Stored only in this
+    browser.</p>
+    <div class="row"><input type="text" id="tokenInput" placeholder="token">
+    <button class="primary" id="btnSaveToken">Save</button></div>
+  </section>
+
+  <!-- browse -->
+  <section id="vBrowse" hidden>
+    <div id="filterChips"></div>
+    <form id="searchForm" class="row">
+      <button type="button" id="btnAddFilter" class="icon"
+              title="add filter" aria-label="add filter">&#9776;</button>
+      <input type="search" id="q" placeholder="search (calibre syntax works)">
+      <button class="primary">Go</button>
+    </form>
+    <div id="queryPreview" class="small muted"></div>
+    <ol id="results" class="list"></ol>
+    <button id="btnMore" class="small" hidden>more</button>
+  </section>
+
+  <!-- filter column picker -->
+  <section id="vPickCol" hidden>
+    <button class="small" data-nav="browse">&larr; back</button>
+    <h2>Filter on which column?</h2>
+    <ul id="colList" class="list"></ul>
+  </section>
+
+  <!-- filter value picker -->
+  <section id="vPickVal" hidden>
+    <button class="small" data-nav="browse">&larr; cancel</button>
+    <h2 id="pickValTitle"></h2>
+    <div class="row">
+      <label><input type="radio" name="mode" value="include" checked> include</label>
+      <label><input type="radio" name="mode" value="exclude"> exclude (NOT)</label>
+    </div>
+    <div class="row">
+      <input type="text" id="freeValue" placeholder="or type a value">
+      <button class="small" id="btnFreeValue">use</button>
+    </div>
+    <div id="valTree"></div>
+  </section>
+
+  <!-- book detail -->
+  <section id="vDetail" hidden>
+    <button class="small" data-nav="browse">&larr; back</button>
+    <div class="bookhead">
+      <img id="dCover" alt="" hidden>
+      <div class="bookhead-text">
+        <h2 id="dTitle"></h2>
+        <div id="dSeries" class="series" hidden></div>
+        <div id="dAuthors" class="muted"></div>
+      </div>
+    </div>
+    <div id="dFields"></div>
+    <div class="row actions">
+      <button id="btnCheck">Check</button>
+      <button id="btnUpdate">Update</button>
+      <button id="btnEpub">Get EPUB</button>
+    </div>
+    <div id="busy" class="box" hidden></div>
+    <div id="decision" hidden></div>
+    <div id="dEvents"></div>
+  </section>
+</main>
+<script type="module" src="app.js"></script>
+</body>
+</html>

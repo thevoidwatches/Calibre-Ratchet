@@ -1,4 +1,10 @@
-# Phase-1 Android client: HTTP Shortcuts
+# Fallback Android client: HTTP Shortcuts
+
+> **Superseded for daily use** by the embedded web app at
+> `http://<host>:8484/ui` (add it to the home screen; works on the ereader
+> too). Kept because home-screen one-tap shortcuts against single endpoints
+> can still be handy (e.g. a bare "Update current book" button).
+
 
 Until the Expo app exists, the free **HTTP Shortcuts** app (Play Store /
 F-Droid, `ch.rmy.android.http_shortcuts`) is a perfectly good client: home

@@ -86,3 +86,48 @@ def test_verify_post_update():
     assert verify_post_update(remote, seq(1, 2))            # missing -> problems
     assert verify_post_update(remote, seq(1, 3, 2))         # order -> problems
     assert verify_post_update(remote, seq(1, 2, 3, 4))      # extra -> problems
+
+
+def test_punctuation_only_change_is_not_a_retitle():
+    """Seen live: epub had a curly apostrophe, the site a straight one."""
+    local = [ch(1, "Kayra\u2019s True Form")]
+    remote = [ch(1, "Kayra's True Form")]
+    d = decide(local, remote)
+    assert d.action == "up_to_date"
+    assert d.diff.retitled == []
+
+
+def test_update_command_bypasses_only_the_file_date_guard(monkeypatch):
+    """always_overwrite must be set (temp-file mtime is meaningless), while
+    --force -- which would skip old-chapter reuse -- must never appear."""
+    import subprocess
+    from ficsync import fff as fff_mod
+    from ficsync.config import CalibreCfg, Config, FFFCfg, PolitenessCfg, ServiceCfg
+
+    seen = {}
+
+    def fake_run(args, cfg):
+        seen["args"] = args
+        return subprocess.CompletedProcess(
+            args, 0, stdout="Do update - epub(1) vs url(2)", stderr="")
+
+    monkeypatch.setattr(fff_mod, "run_fff", fake_run)
+    cfg = Config(ServiceCfg(), CalibreCfg(), FFFCfg(), PolitenessCfg())
+    fff_mod.update_epub("x.epub", cfg)
+
+    assert "-o" in seen["args"] and "always_overwrite=true" in seen["args"]
+    assert "--force" not in seen["args"]
+
+
+def test_file_date_guard_firing_anyway_is_an_error(monkeypatch):
+    import subprocess
+    import pytest as _pytest
+    from ficsync import fff as fff_mod
+    from ficsync.config import CalibreCfg, Config, FFFCfg, PolitenessCfg, ServiceCfg
+
+    monkeypatch.setattr(fff_mod, "run_fff", lambda a, c: subprocess.CompletedProcess(
+        a, 0, stdout="File(x) Updated(2026-08-26) more recently than Story(2026-08-25) - Skipping",
+        stderr=""))
+    cfg = Config(ServiceCfg(), CalibreCfg(), FFFCfg(), PolitenessCfg())
+    with _pytest.raises(fff_mod.FFFError):
+        fff_mod.update_epub("x.epub", cfg)
