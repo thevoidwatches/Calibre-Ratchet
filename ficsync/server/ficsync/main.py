@@ -70,6 +70,21 @@ def _lib(library: str | None) -> str:
 
 LIB_Q = Query(default=None, description="calibre library id; omitted = the configured default")
 
+# Orders offered by the UI, mapped to calibre sort keys.
+#
+# calibre accepts a comma-separated list and applies it as a multi-level sort,
+# and sorting by "series" already orders by series_index within each series
+# (verified against calibre 9.13) — so "authors,series" gives author, then
+# series name, then series order, which "authors" alone does not.
+SORT_OPTIONS = [
+    {"key": "title",    "label": "Title",         "calibre": "title"},
+    {"key": "series",   "label": "Series",        "calibre": "series"},
+    {"key": "author",   "label": "Author",        "calibre": "authors,series"},
+    {"key": "modified", "label": "Last modified", "calibre": "last_modified"},
+]
+_SORT_BY_KEY = {o["key"]: o["calibre"] for o in SORT_OPTIONS}
+DEFAULT_SORT = "modified"
+
 
 def require_token(authorization: str = Header(default=""),
                   x_api_token: str = Header(default="")) -> None:
@@ -190,9 +205,19 @@ def libraries() -> dict:
 
 @app.get("/books", dependencies=AUTH)
 def list_books(q: str = Query(default=""), num: int = 50, offset: int = 0,
+               sort: str = DEFAULT_SORT, sort_order: str = "desc",
                library: str | None = LIB_Q) -> dict:
     lib = _lib(library)
-    res = calibre.search(query=q, num=num, offset=offset, library_id=lib)
+    # Rejected rather than silently corrected: calibre answers 200 for a sort
+    # field it does not recognise, so a typo would quietly return an order
+    # nobody asked for.
+    if sort not in _SORT_BY_KEY:
+        raise HTTPException(400, f"unknown sort '{sort}'; expected one of "
+                                 f"{sorted(_SORT_BY_KEY)}")
+    if sort_order not in ("asc", "desc"):
+        raise HTTPException(400, "sort_order must be 'asc' or 'desc'")
+    res = calibre.search(query=q, num=num, offset=offset, library_id=lib,
+                         sort=_SORT_BY_KEY[sort], sort_order=sort_order)
     ids = res.get("book_ids", [])
     metas = calibre.books(ids, library_id=lib) if ids else {}
     books = []
@@ -433,4 +458,7 @@ app.mount("/ui", _RevalidatingStatic(directory=Path(__file__).parent / "static",
 def ui_config() -> dict:
     """What the embedded UI needs to render itself."""
     return {"writable_fields": cfg.calibre.writable_fields,
-            "genre_field": cfg.calibre.genre_field}
+            "genre_field": cfg.calibre.genre_field,
+            "sort_options": [{"key": o["key"], "label": o["label"]}
+                             for o in SORT_OPTIONS],
+            "default_sort": DEFAULT_SORT}

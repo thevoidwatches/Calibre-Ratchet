@@ -1,6 +1,6 @@
 // Book detail: metadata chip editors + audit events.
 "use strict";
-import { $, state, api, apiJson, err, clearErr, show, isWritable } from "./core.js";
+import { $, state, api, apiJson, err, clearErr, show, isWritable, seriesLabel } from "./core.js";
 import { loadCats, loadCatItems } from "./picker.js";
 import { play } from "./sfx.js";
 import { setUpdateAvailable } from "./actions.js";
@@ -11,17 +11,6 @@ function catNameFor(field) {
   for (const [name, cat] of Object.entries(state.cats || {}))
     if (cat.lookup === field) return name;
   return field;
-}
-
-/** "Beware of Chicken.AU #2" — series name plus index when there is one. */
-function seriesLabel(meta) {
-  const name = meta.series;
-  if (!name) return "";
-  const idx = meta.series_index;
-  // calibre stores the index as a float; show 2 rather than 2.0.
-  if (idx === null || idx === undefined) return name;
-  const n = Number(idx);
-  return name + " #" + (Number.isFinite(n) ? String(+n.toFixed(2)) : idx);
 }
 
 async function showCover(id) {

@@ -1,6 +1,6 @@
 // Browse view: filter chips -> calibre search query -> results list.
 "use strict";
-import { $, state, apiJson, err, clearErr } from "./core.js";
+import { $, state, apiJson, err, clearErr, seriesLabel } from "./core.js";
 import { openBook } from "./detail.js";
 
 // Hierarchical columns get a prefix match so a parent finds its descendants
@@ -45,13 +45,19 @@ export async function search(more = false) {
   if (!more) { state.offset = 0; $("results").innerHTML = ""; }
   try {
     const data = await apiJson("/books?q=" + encodeURIComponent(q) +
-                               "&num=30&offset=" + state.offset);
+                               "&num=30&offset=" + state.offset +
+                               "&sort=" + encodeURIComponent(state.sort || "") +
+                               "&sort_order=" + encodeURIComponent(state.sortDir));
     for (const b of data.books) {
       const li = document.createElement("li");
-      li.innerHTML = '<div class="t"></div><div class="small muted"></div>' +
+      li.innerHTML = '<div class="titlerow"><span class="t"></span>' +
+                     '<span class="ser"></span></div>' +
+                     '<div class="small muted"></div>' +
                      '<div class="meta"><span class="genres"></span>' +
                      '<span class="tags"></span></div>';
-      li.children[0].textContent = b.title || ("(book " + b.id + ")");
+      li.querySelector(".t").textContent = b.title || ("(book " + b.id + ")");
+      // Empty when the book has no series; the CSS then collapses the span.
+      li.querySelector(".ser").textContent = seriesLabel(b);
       li.children[1].textContent = (b.authors || []).join(", ");
       const meta = li.children[2];
       meta.querySelector(".genres").textContent = (b.genre || []).join(" · ");
