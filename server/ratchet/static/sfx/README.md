@@ -9,8 +9,7 @@ you don't have to convert anything.
 | `success` | an update finished and was pushed to calibre, or a metadata edit saved |
 | `refused`  | a safe-refusal: chapters would have been lost, or a non-append update was declined |
 | `error`    | anything failed — network, calibre, FanFicFare, post-verify |
-| `page-shift` | the whole page changes: opening a book, returning to the list, entering the filter picker |
-| `select`   | a smaller move: stepping deeper into the filter picker, opening or closing a collapsible section |
+| `select`   | moving about: a new page (opening a book, returning to the list), a step through the filter picker, a section opened or closed |
 | `tap_01` … `tap_05` | any other button, chip or control — one of the five is chosen at random per press, so repeated presses don't sound mechanical |
 
 Every file is optional; a missing one just means no sound in that case.
@@ -28,5 +27,6 @@ Notes:
   cache. The server sends `no-cache` on everything under `/ui`, so a plain
   reload is enough — but a page loaded *before* that header existed may need
   one hard reload (Chrome: long-press reload, or clear the site's data).
-- Sound can be toggled off in the app (the speaker button in the header); the
-  setting is remembered per device.
+- Sound can be toggled off in the app (the speaker button in the header), and
+  holding that button opens a volume slider. Both settings are remembered per
+  device.

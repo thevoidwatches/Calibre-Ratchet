@@ -694,5 +694,23 @@ def test_navigation_sounds_are_wired_through_the_view_event():
     core = client.get("/ui/core.js").text
     sfx = client.get("/ui/sfx.js").text
     assert "VIEW_CHANGED_EVENT" in core and "dispatchEvent" in core
-    assert "VIEW_CHANGED_EVENT" in sfx and '"page-shift"' in sfx
+    assert "VIEW_CHANGED_EVENT" in sfx and 'play("select")' in sfx
     assert not re.search(r"""^\s*import[^\n]*["']\./sfx\.js["']""", core, re.M)
+
+
+def test_volume_is_persisted_and_applied_to_playback():
+    """The slider is useless if the level is not reapplied on later sounds:
+    each is a cached Audio element resolved once and reused."""
+    sfx = client.get("/ui/sfx.js").text
+    assert "ratchet_volume" in sfx
+    assert "audio.volume = gain()" in sfx
+    # Zero volume must silence playback outright, not just turn it down.
+    assert "volume === 0" in sfx
+
+
+def test_volume_popover_ships_with_the_page():
+    html = client.get("/ui/").text
+    assert 'id="volPop"' in html and 'id="volRange"' in html
+    assert 'type="range"' in html
+    css = client.get("/ui/ui.css").text
+    assert ".volpop" in css

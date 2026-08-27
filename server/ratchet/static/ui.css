@@ -40,6 +40,18 @@ header .controls { display: flex; align-items: center; gap: 6px;
                    flex-wrap: wrap; justify-content: flex-end; justify-self: end; }
 header select { justify-self: center; max-width: 100%; min-width: 0;
                 min-height: 38px; padding: 4px 6px; }
+/* The header is the positioning context for the volume popover. */
+header { position: relative; }
+/* A long press on the speaker opens this; keep the press from also selecting
+   text or raising Android's own long-press menu. */
+#btnMute { touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+.volpop { position: absolute; top: 100%; right: 12px; z-index: 10;
+          display: flex; align-items: center; gap: 8px;
+          background: var(--bg); border: 2px solid var(--fg);
+          border-radius: 6px; padding: 8px 10px; }
+.volpop[hidden] { display: none; }
+.volpop input[type=range] { width: 160px; min-height: 44px; }
+.volpop .muted { flex: 0 0 3.2em; text-align: right; }
 header select[hidden] { display: none; }
 
 main { padding: 10px 12px 40px; max-width: 720px; margin: 0 auto; }
