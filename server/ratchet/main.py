@@ -819,6 +819,23 @@ app.mount("/ui", _RevalidatingStatic(directory=Path(__file__).parent / "static",
           name="ui")
 
 
+@app.get("/apk-info", dependencies=AUTH)
+def apk_info() -> dict:
+    """When the deployed APK was built, so the app can say whether a download
+    would actually get you anything.
+
+    A timestamp rather than a version number: the shell's build does not stamp
+    one anywhere the server could read without unpacking the APK, and the
+    device already knows when its own copy was installed. Comparing those two
+    answers the only question being asked.
+    """
+    path = cfg.data_dir / "ratchet.apk"
+    if not path.is_file():
+        raise HTTPException(404, "no APK deployed")
+    stat = path.stat()
+    return {"built_at": int(stat.st_mtime * 1000), "size": stat.st_size}
+
+
 @app.get("/apk")
 def apk() -> Response:
     """The built Android shell, downloadable from a device's browser.

@@ -6,6 +6,7 @@ import { buildQuery, describeFilters, isDownloadedAtom, isPresetAtom } from "./q
 import { openBook } from "./detail.js";
 import { downloadedIds } from "./catalog.js";
 import { play } from "./sfx.js";
+import { readClipboard } from "./storage.js";
 
 const COLLAPSE_KEY = "ratchet_filters_collapsed";
 
@@ -170,12 +171,9 @@ function addStatusLine(text) {
   box.append(line);
 }
 
-$("btnAddStory").onclick = () => {
-  const url = prompt(
-    "Story URL to add to " + (state.library || "the library") + ":\n\n" +
-    "The whole story is downloaded first, which can take minutes. Downloads " +
-    "finish on the server even if you close the app; you can also keep " +
-    "hitting + Add — extra stories queue up.");
+/** Queue one story for adding to the current library. Shared by the button,
+ *  the clipboard pre-fill and the Android share sheet. */
+export function queueAdd(url) {
   if (!url || !url.trim()) return;
   if (!addRunning) {           // a fresh batch replaces the old batch's report
     $("addStatus").innerHTML = "";
@@ -185,6 +183,26 @@ $("btnAddStory").onclick = () => {
   addBatchTotal += 1;
   addQueue.push({url: url.trim(), library: state.library});
   runAddQueue();
+}
+
+/** The first http(s) URL in some text — a share often arrives as "Title —
+ *  https://…", and a clipboard can hold anything at all. */
+export function firstUrl(text) {
+  const m = String(text || "").match(/https?:\/\/\S+/);
+  return m ? m[0] : "";
+}
+
+$("btnAddStory").onclick = async () => {
+  // Pre-fill from the clipboard when it holds a link: the URL is almost
+  // always why the reader came here, and retyping it on a phone is miserable.
+  let suggested = "";
+  try { suggested = firstUrl(await readClipboard()); } catch (e) { /* no clipboard */ }
+  const url = prompt(
+    "Story URL to add to " + (state.library || "the library") + ":\n\n" +
+    "The whole story is downloaded first, which can take minutes. Downloads " +
+    "finish on the server even if you close the app; you can also keep " +
+    "hitting + Add — extra stories queue up.", suggested);
+  if (url) queueAdd(url);
 };
 
 async function runAddQueue() {

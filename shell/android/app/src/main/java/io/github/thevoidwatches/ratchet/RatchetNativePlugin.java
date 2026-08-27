@@ -102,6 +102,59 @@ public class RatchetNativePlugin extends Plugin {
         }
     }
 
+    /** Text shared into Ratchet since the last call, or "" — collected once
+     *  and cleared, so returning to the app later does not re-add a story. */
+    @PluginMethod
+    public void consumeSharedText(PluginCall call) {
+        JSObject ret = new JSObject();
+        ret.put("text", MainActivity.pendingSharedText == null
+                ? "" : MainActivity.pendingSharedText);
+        MainActivity.pendingSharedText = null;
+        call.resolve(ret);
+    }
+
+    /** The clipboard's text, for pre-filling the add-by-URL prompt.
+     *
+     *  Native rather than navigator.clipboard: that API needs a secure
+     *  context, and Ratchet is served over plain http on the tailnet. Reading
+     *  is allowed here because the activity is in the foreground.
+     */
+    @PluginMethod
+    public void readClipboard(PluginCall call) {
+        String text = "";
+        try {
+            android.content.ClipboardManager cb = (android.content.ClipboardManager)
+                    getContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+            if (cb != null && cb.hasPrimaryClip() && cb.getPrimaryClip() != null
+                    && cb.getPrimaryClip().getItemCount() > 0) {
+                CharSequence cs = cb.getPrimaryClip().getItemAt(0)
+                        .coerceToText(getContext());
+                if (cs != null) text = cs.toString().trim();
+            }
+        } catch (Exception e) {
+            text = "";      // a clipboard we cannot read is not an error here
+        }
+        JSObject ret = new JSObject();
+        ret.put("text", text);
+        call.resolve(ret);
+    }
+
+    /** When this build was installed, so the UI can tell whether the APK on
+     *  the server is newer without either side tracking version numbers. */
+    @PluginMethod
+    public void appInfo(PluginCall call) {
+        JSObject ret = new JSObject();
+        try {
+            android.content.pm.PackageInfo info = getContext().getPackageManager()
+                    .getPackageInfo(getContext().getPackageName(), 0);
+            ret.put("installedAt", info.lastUpdateTime);
+            ret.put("versionName", info.versionName);
+        } catch (Exception e) {
+            ret.put("installedAt", 0);
+        }
+        call.resolve(ret);
+    }
+
     /** Open an http(s) URL in the system browser. The WebView has no download
      *  handler, so in-app navigation to the APK would go nowhere; the browser
      *  downloads it and hands off to the package installer. */

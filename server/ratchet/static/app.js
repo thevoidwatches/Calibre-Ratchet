@@ -1,14 +1,15 @@
 // Entry point: nav wiring, token handling, boot.
 "use strict";
 import { $, state, setToken, setLibrary, setSort, apiJson, clearErr, show } from "./core.js";
-import { renderFilterChips, renderFilterBar, search } from "./browse.js";
+import { renderFilterChips, renderFilterBar, search, queueAdd, firstUrl } from "./browse.js";
 import "./picker.js";     // side effect: filter-picker button handlers
 import "./actions.js";    // side effect: check/update/epub button handlers
 import { initSfx, play } from "./sfx.js";
 import { initTheme } from "./theme.js";
 import { initFilters, loadSavedFilters } from "./filters.js";
 import { openBook } from "./detail.js";
-import { ensureStorage, initStorage, inShell, openExternal } from "./storage.js";
+import { ensureStorage, initStorage, inShell, openExternal,
+         consumeSharedText, installedAt } from "./storage.js";
 import { refreshCatalog } from "./catalog.js";
 
 // On-screen back/cancel buttons pop history rather than jumping, so they and
@@ -34,12 +35,42 @@ initStorage();
 // The wordmark is the app-update link. A tap asks first — it is easy to hit
 // by accident — then downloads: plain browsers follow the href, while in the
 // shell the WebView cannot download, so the system browser opens instead.
-$("apkLink").addEventListener("click", e => {
+$("apkLink").addEventListener("click", async e => {
   e.preventDefault();
-  if (!confirm("Download the latest version of the Ratchet app?")) return;
+  if (!confirm(await updatePrompt())) return;
   if (inShell()) openExternal(window.location.origin + "/apk");
   else window.location.href = "/apk";
 });
+
+/** Say whether downloading would actually get anything newer.
+ *
+ *  Compared as timestamps — when the deployed APK was built against when this
+ *  build was installed — because neither side tracks a version number the
+ *  other can see, and this is the question being asked anyway. */
+async function updatePrompt() {
+  const ask = "Download the latest version of the Ratchet app?";
+  if (!inShell()) return ask;
+  try {
+    const [info, mine] = await Promise.all([apiJson("/apk-info"), installedAt()]);
+    if (!mine || !info.built_at) return ask;
+    const built = new Date(info.built_at).toLocaleString();
+    return info.built_at > mine
+      ? `A newer version is available (built ${built}). Download it?`
+      : `You already have the latest version (built ${built}). Download anyway?`;
+  } catch (e) { return ask; }   // no answer is not a reason to block the update
+}
+
+/** A story link shared into Ratchet from elsewhere on the device. Checked on
+ *  load and whenever the app comes back to the foreground, since a share into
+ *  an already-running app never reloads the page. */
+async function checkSharedStory() {
+  const shared = firstUrl(await consumeSharedText());
+  if (!shared) return;
+  if (!confirm("Add this story to " + (state.library || "the library") + "?\n\n" +
+               shared)) return;
+  show("browse");
+  queueAdd(shared);
+}
 
 // Inside the Android shell the WebView keeps this page alive across app
 // switches — without this, an app "reopened" days later still runs whatever
@@ -51,6 +82,8 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") { hiddenAt = Date.now(); return; }
   if (hiddenAt && Date.now() - hiddenAt > STALE_AFTER_MS) location.reload();
   hiddenAt = null;
+  // A share into the running app brings it forward without reloading.
+  checkSharedStory().catch(() => {});
 });
 
 $("btnSettings").onclick = () => { $("tokenInput").value = state.token; show("token"); };
@@ -164,5 +197,8 @@ async function boot({announce = false} = {}) {
   renderFilterBar();
   loadSavedFilters();
   search();
+  // Last: a share that launched the app is only actionable once a library is
+  // chosen, since that is what decides where the story lands.
+  checkSharedStory().catch(() => {});
 }
 boot();
