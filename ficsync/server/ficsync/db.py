@@ -21,10 +21,13 @@ server's default library".
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
+
+log = logging.getLogger("ficsync")
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS books(
@@ -127,6 +130,13 @@ class Sidecar:
 
     def log_event(self, library_id: str, book_id: int | None,
                   kind: str, detail: dict) -> None:
+        # Every failure funnels through here, so this one warning covers the
+        # console for all of them; successes get their own narrative lines at
+        # the endpoints instead.
+        if "error" in kind or "failed" in kind or kind == "refused":
+            log.warning("%s: book %s (%s) — %s", kind, book_id,
+                        library_id or "(default)",
+                        json.dumps(detail, ensure_ascii=False)[:400])
         with self._lock, self._conn:
             self._conn.execute(
                 "INSERT INTO events(ts, library_id, book_id, kind, detail) VALUES(?,?,?,?,?)",

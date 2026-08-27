@@ -361,10 +361,13 @@ def book_detail(book_id: int, library: str | None = LIB_Q) -> dict:
 
 @app.get("/books/{book_id}/epub", dependencies=AUTH)
 def get_epub(book_id: int, library: str | None = LIB_Q) -> Response:
+    lib = _lib(library)
     try:
-        data = calibre.download_format(book_id, "EPUB", _lib(library))
+        data = calibre.download_format(book_id, "EPUB", lib)
     except CalibreError as e:
         raise HTTPException(404, str(e))
+    log.info("epub: book %s (%s) sent (%.1f MB)",
+             book_id, _libname(lib), len(data) / 1e6)
     return Response(content=data, media_type="application/epub+zip", headers={
         "Content-Disposition": f'attachment; filename="{book_id}.epub"'})
 
@@ -397,6 +400,9 @@ def check(book_id: int, library: str | None = LIB_Q) -> dict:
     payload = _decision_payload(decision, remote)
     payload["story_url"] = url
     payload["library_id"] = lib
+    log.info('check: book %s (%s) "%s" — local %d / site %d → %s',
+             book_id, _libname(lib), remote.title,
+             len(local), len(remote.chapters), decision.action)
     sidecar.log_event(lib, book_id, "check", {"url": url, "action": decision.action,
                                               "new": len(decision.diff.new),
                                               "missing": len(decision.diff.missing)})
@@ -479,6 +485,9 @@ def convert(book_id: int, library: str | None = LIB_Q) -> dict:
                                   {"url": url, "error": str(e)})
                 raise HTTPException(502, str(e))
 
+            log.info('convert: book %s (%s) "%s" — %d chapters, FanFicFare '
+                     'downloading a fresh copy…',
+                     book_id, _libname(lib), remote.title, len(remote.chapters))
             backup_path = _backup(lib, book_id, epub_path)
             fresh_path = str(Path(tmp.name) / "fresh.epub")
             try:
@@ -512,6 +521,8 @@ def convert(book_id: int, library: str | None = LIB_Q) -> dict:
 
             sidecar.save_snapshot(lib, book_id, url, site_of(url),
                                   [c.as_dict() for c in post], baseline="exact")
+            log.info('convert: book %s "%s" done — now FFF-managed, %d chapters',
+                     book_id, remote.title, len(post))
             sidecar.log_event(lib, book_id, "converted",
                               {"url": url, "chapters": len(post)})
             return {"converted": True, "story_url": url,
@@ -549,10 +560,15 @@ def update(book_id: int, dry_run: bool = False,
             if decision.action.startswith("refuse"):
                 sidecar.log_event(lib, book_id, "refused", payload)
             if not decision.ok_to_update or dry_run:
+                log.info('update: book %s (%s) "%s" — %s, nothing written',
+                         book_id, _libname(lib), remote.title, decision.action)
                 payload["updated"] = False
                 payload["dry_run"] = dry_run
                 return payload
 
+            log.info('update: book %s (%s) "%s" — %d new chapters, '
+                     'FanFicFare downloading…',
+                     book_id, _libname(lib), remote.title, len(decision.diff.new))
             backup_path = _backup(lib, book_id, epub_path)
             try:
                 fff_result = update_epub(epub_path, cfg)
@@ -586,6 +602,8 @@ def update(book_id: int, dry_run: bool = False,
                 "backup": backup_path,
                 "fff_output": fff_result.stdout_tail,
             })
+            log.info('update: book %s "%s" done — %d chapters (was %d)',
+                     book_id, remote.title, len(post), len(local))
             sidecar.log_event(lib, book_id, "updated",
                               {"url": url, "new": len(decision.diff.new),
                                "final": len(post)})
@@ -611,6 +629,8 @@ def set_fields(book_id: int, changes: dict = Body(embed=True),
         result = calibre.set_fields(book_id, changes, lib)
     except CalibreError as e:
         raise HTTPException(502, str(e))
+    log.info("fields: book %s (%s) changed %s",
+             book_id, _libname(lib), ", ".join(sorted(changes)))
     sidecar.log_event(lib, book_id, "fields", {"changed": sorted(changes)})
     return result
 
