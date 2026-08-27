@@ -86,13 +86,38 @@ def raster(size: int, glyph_scale: float) -> Image.Image:
     return img.resize((size, size), Image.LANCZOS)
 
 
+def raster_tray(size: int) -> Image.Image:
+    """Round badge on transparency, for the Windows notification area.
+
+    Kept as a white disc rather than a bare glyph: the taskbar may be dark or
+    light, and a single-colour mark would disappear against one of them.
+    """
+    ss = 4
+    big = size * ss
+    img = Image.new("RGBA", (big, big), (255, 255, 255, 0))
+    d = ImageDraw.Draw(img)
+
+    k = big / 512.0
+    t = lambda pts: [(x * k, y * k) for x, y in pts]
+    circle = lambda r: [(C - r) * k, (C - r) * k, (C + r) * k, (C + r) * k]
+
+    d.ellipse(circle(DISC_R), fill=(255, 255, 255, 255))
+    d.polygon(t(ratchet_outline()), fill=(0, 0, 0, 255))
+    d.ellipse(circle(RING_INNER), fill=(255, 255, 255, 255))
+
+    return img.resize((size, size), Image.LANCZOS)
+
+
 def main() -> None:
     (OUT / "icon.svg").write_text(svg(), encoding="utf-8")
     raster(512, 0.94).save(OUT / "icon-512.png")
     raster(192, 0.94).save(OUT / "icon-192.png")
     # Maskable: any launcher shape may crop to ~80% — keep the glyph inside.
     raster(512, 0.70).save(OUT / "icon-maskable-512.png")
-    for name in ["icon.svg", "icon-512.png", "icon-192.png", "icon-maskable-512.png"]:
+    # Tray: pystray scales this down to whatever the shell asks for.
+    raster_tray(64).save(OUT / "icon-tray.png")
+    for name in ["icon.svg", "icon-512.png", "icon-192.png",
+                 "icon-maskable-512.png", "icon-tray.png"]:
         print(f"  wrote {OUT / name}")
 
 
