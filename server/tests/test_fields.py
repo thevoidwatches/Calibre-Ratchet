@@ -112,3 +112,26 @@ def test_deeper_paths_keep_the_rest_of_the_path_in_the_label():
     (group,) = _group(["Isekai.Urban.Fantasy"])["groups"]
     assert group["label"] == "Isekai"
     assert [i["label"] for i in group["items"]] == ["Urban.Fantasy"]
+
+
+# --- tapping metadata to find its siblings -----------------------------------
+
+@pytest.fixture(scope="module")
+def link_fields():
+    p = subprocess.run([node, str(HERE / "filter_link_harness.mjs")],
+                       capture_output=True, text=True, encoding="utf-8")
+    assert p.returncode == 0, p.stderr
+    return json.loads(p.stdout)
+
+
+def test_hierarchical_fields_also_find_their_children(link_fields):
+    """Tapping the genre "Fantasy" should turn up "Fantasy.Xianxia" too."""
+    for field in ["#genre", "tags", "#fandom", "#readinglist"]:
+        assert link_fields[field] is True, field
+
+
+def test_series_and_authors_match_exactly(link_fields):
+    """A dot in "R.A. Scott" or a dotted series title is punctuation, not
+    depth, so these must not be read as a hierarchy prefix."""
+    for field in ["series", "authors", "publisher", "languages"]:
+        assert link_fields[field] is False, field

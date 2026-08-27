@@ -77,6 +77,12 @@ export const PICK_FILTER_EVENT = "ratchet:pick-filter";
 // follow navigation without core.js knowing anything about audio.
 export const VIEW_CHANGED_EVENT = "ratchet:view-changed";
 
+// "show me everything else like this" — a genre, tag, series or author on the
+// book page asking the browse view to filter by it. An event because
+// browse.js already imports detail.js for openBook, so detail.js cannot
+// import back without making the pair circular.
+export const FILTER_BY_EVENT = "ratchet:filter-by";
+
 export function err(msg) { const b = $("errBox"); b.textContent = msg; b.hidden = false; }
 export function clearErr() { $("errBox").hidden = true; }
 

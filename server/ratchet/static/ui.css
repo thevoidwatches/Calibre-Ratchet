@@ -78,6 +78,17 @@ input, select { font: inherit; border: 2px solid var(--fg); border-radius: 6px;
 .chip.excl { border-style: dashed; text-decoration: line-through; }
 .chip button { border: none; min-height: 0; padding: 0 2px; font-weight: bold;
                background: none; color: inherit; }
+/* A chip's own label, when tapping it filters by that value: reads as part of
+   the chip, not as a second control inside it. The × keeps the bold weight. */
+.chip .gofilter { font-weight: normal; font-size: inherit; padding: 0;
+                  cursor: pointer; }
+
+/* Metadata that doubles as a filter link — series, authors, chip labels.
+   Underlined rather than coloured, since the palette is deliberately two-tone. */
+.gofilter { background: none; border: none; color: inherit; font: inherit;
+            padding: 2px 0; min-height: 0; cursor: pointer;
+            text-decoration: underline; text-decoration-style: dotted;
+            text-underline-offset: 3px; }
 
 .list { list-style: none; padding: 0; margin: 8px 0; }
 .list li { border: 1px solid var(--fg); border-radius: 6px; padding: 10px;

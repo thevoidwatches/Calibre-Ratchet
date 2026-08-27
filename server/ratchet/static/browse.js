@@ -1,6 +1,7 @@
 // Browse view: filter chips -> calibre search query -> results list.
 "use strict";
-import { $, state, apiJson, err, clearErr, PICK_FILTER_EVENT } from "./core.js";
+import { $, state, apiJson, err, clearErr, show,
+         FILTER_BY_EVENT, PICK_FILTER_EVENT } from "./core.js";
 import { seriesLabel } from "./format.js";
 import { buildQuery, describeFilters, isDownloadedAtom, isPresetAtom } from "./query.js";
 import { openBook } from "./detail.js";
@@ -132,6 +133,23 @@ export async function search(more = false) {
     $("btnMore").hidden = !(data.total > state.offset && data.books.length > 0);
   } catch (e) { err("search failed — " + e.message); }
 }
+
+/** Jump from a book to everything else like it: the clicked genre, tag,
+ *  series or author becomes the only filter.
+ *
+ *  Replaces rather than adds, because "show me the rest of this series" means
+ *  exactly that — leaving earlier filters in place would hide most of the
+ *  answer, and the chips make the new state plain enough to adjust.
+ */
+window.addEventListener(FILTER_BY_EVENT, e => {
+  const {field, value, hierarchical} = e.detail || {};
+  if (!field || !value) return;
+  state.filterGroups = [{terms: [{field, value, exclude: false, hierarchical}]}];
+  $("q").value = "";
+  renderFilterChips();
+  show("browse");
+  search();
+});
 
 /** Ask picker.js to open the column list. `groupIndex` null means "start a new
  *  AND group"; a number means "add an alternative to that existing group". */

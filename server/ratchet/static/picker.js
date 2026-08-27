@@ -152,6 +152,10 @@ export function lookupOf(colName) {
 
 export const isHierarchical = colName => !NO_HIERARCHY.has(lookupOf(colName));
 
+/** The same question asked with a calibre lookup name ("#genre", "authors")
+ *  rather than a display name, for callers that already hold the field. */
+export const fieldIsHierarchical = field => !NO_HIERARCHY.has(field);
+
 async function pickValue(colName) {
   state.pickingCol = colName;
   $("pickValTitle").textContent = colName;
