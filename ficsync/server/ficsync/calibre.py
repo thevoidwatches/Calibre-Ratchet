@@ -155,6 +155,15 @@ class CalibreClient:
         }]}
         return self.set_fields(book_id, changes, library_id)
 
+    def set_cover(self, book_id: int, image_bytes: bytes,
+                  media_type: str = "image/jpeg",
+                  library_id: str | None = None) -> dict:
+        """Set the book's cover from image bytes. Needed because add-book
+        does not take the cover out of the epub itself."""
+        b64 = base64.b64encode(image_bytes).decode("ascii")
+        return self.set_fields(
+            book_id, {"cover": f"data:{media_type};base64," + b64}, library_id)
+
     def add_book(self, epub_bytes: bytes, filename: str,
                  library_id: str | None = None) -> dict:
         """Create a NEW book from an epub: POST /cdb/add-book with the raw

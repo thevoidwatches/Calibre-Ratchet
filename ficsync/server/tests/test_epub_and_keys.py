@@ -5,6 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from ficsync.chapterkeys import canonical_key  # noqa: E402
+from ficsync import epub  # noqa: E402
 from ficsync.epub import extract_chapters, read_story_url  # noqa: E402
 
 CONTAINER = """<?xml version="1.0"?>
@@ -85,3 +86,54 @@ def test_canonical_keys_slug_and_form_insensitive():
 
     other = "https://forums.example.com/threads/story.1/post-99"
     assert canonical_key(other).startswith("url:")
+
+
+# --- cover extraction (calibre's add-book ignores the epub's own cover) ------
+
+def _epub_with_cover(path, *, opf_dir="", epub3=False, media="image/jpeg",
+                     cover_name="cover.jpg", declare=True):
+    """Minimal epub whose OPF may live in a subdirectory, so the relative
+    href resolution is actually exercised."""
+    opf_path = (opf_dir + "/" if opf_dir else "") + "content.opf"
+    meta = "" if epub3 else '<meta name="cover" content="cvr"/>'
+    props = ' properties="cover-image"' if epub3 else ""
+    item = (f'<item id="cvr" href="{cover_name}" media-type="{media}"{props}/>'
+            if declare else "")
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr("mimetype", "application/epub+zip")
+        z.writestr("META-INF/container.xml",
+                   '<?xml version="1.0"?><container version="1.0" '
+                   'xmlns="urn:oasis:names:tc:opendocument:xmlns:container">'
+                   f'<rootfiles><rootfile full-path="{opf_path}" '
+                   'media-type="application/oebps-package+xml"/></rootfiles></container>')
+        z.writestr(opf_path, f'''<?xml version="1.0"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="id">
+<metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>T</dc:title>
+<dc:identifier id="id">x</dc:identifier>{meta}</metadata>
+<manifest>{item}</manifest><spine/></package>''')
+        if declare:
+            z.writestr((opf_dir + "/" if opf_dir else "") + cover_name, b"IMAGEBYTES")
+
+
+def test_cover_is_extracted_from_an_epub2_meta(tmp_path):
+    p = tmp_path / "a.epub"
+    _epub_with_cover(p)
+    assert epub.extract_cover(str(p)) == (b"IMAGEBYTES", "image/jpeg")
+
+
+def test_cover_is_extracted_from_an_epub3_manifest_property(tmp_path):
+    p = tmp_path / "b.epub"
+    _epub_with_cover(p, epub3=True, media="image/png", cover_name="c.png")
+    assert epub.extract_cover(str(p)) == (b"IMAGEBYTES", "image/png")
+
+
+def test_cover_href_resolves_relative_to_the_opf_not_the_zip_root(tmp_path):
+    p = tmp_path / "c.epub"
+    _epub_with_cover(p, opf_dir="OEBPS")
+    assert epub.extract_cover(str(p)) == (b"IMAGEBYTES", "image/jpeg")
+
+
+def test_no_cover_returns_none_rather_than_raising(tmp_path):
+    p = tmp_path / "d.epub"
+    _epub_with_cover(p, declare=False)
+    assert epub.extract_cover(str(p)) is None

@@ -556,3 +556,73 @@ def test_unblocked_sites_are_unaffected_by_the_blocklist(monkeypatch):
                     headers=TOK)
     assert r.status_code == 502
     assert "fetch stage" in r.json()["detail"]
+def _stub_add(monkeypatch, url, *, cover):
+    """Wire up a successful add whose fresh epub yields `cover`."""
+    from ficsync import main as M
+    from ficsync.epub import Chapter
+    chs = [Chapter(key="c1", url="u1", title="One")]
+    monkeypatch.setattr(M, "normalize_story_url", lambda u: url)
+    monkeypatch.setattr(M, "fetch_remote", lambda u, cfg: M.RemoteStory(
+        title="Cover Story", site="royalroad.com", status="In-Progress",
+        chapters=chs, raw={}))
+    def fake_run_fff(args, cfg):
+        out = next(a for a in args if a.startswith("output_filename=")).split("=", 1)[1]
+        Path(out).write_bytes(b"stub epub")
+        class Proc:
+            returncode, stdout, stderr = 0, "", ""
+        return Proc()
+    monkeypatch.setattr(M, "run_fff", fake_run_fff)
+    monkeypatch.setattr(M.epub_mod, "extract_chapters", lambda p: chs)
+    monkeypatch.setattr(M.epub_mod, "extract_cover", lambda p: cover)
+    monkeypatch.setattr(M.calibre, "add_book",
+                        lambda data, filename, lib: {"book_id": 777, "title": "Cover Story"})
+    return M
+
+
+def test_add_pushes_the_cover_calibre_would_otherwise_drop(monkeypatch):
+    M = _stub_add(monkeypatch, "https://www.royalroad.com/fiction/999002",
+                  cover=(b"JPEGBYTES", "image/jpeg"))
+    seen = {}
+    monkeypatch.setattr(M.calibre, "set_cover",
+                        lambda bid, data, media, lib: seen.update(
+                            bid=bid, data=data, media=media, lib=lib))
+    r = client.post("/books/add",
+                    json={"url": "https://www.royalroad.com/fiction/999002"},
+                    headers=TOK)
+    assert r.status_code == 200, r.text
+    assert r.json()["cover_set"] is True
+    assert seen["bid"] == 777 and seen["data"] == b"JPEGBYTES"
+    assert seen["media"] == "image/jpeg"
+
+
+def test_add_succeeds_when_the_epub_has_no_cover(monkeypatch):
+    _stub_add(monkeypatch, "https://www.royalroad.com/fiction/999003", cover=None)
+    r = client.post("/books/add",
+                    json={"url": "https://www.royalroad.com/fiction/999003"},
+                    headers=TOK)
+    assert r.status_code == 200, r.text
+    assert r.json()["cover_set"] is False
+
+
+def test_a_failing_cover_push_does_not_lose_the_book(monkeypatch):
+    """The book is already in calibre by then; a cover error must not turn a
+    successful add into an error the UI reports as failure."""
+    M = _stub_add(monkeypatch, "https://www.royalroad.com/fiction/999004",
+                  cover=(b"JPEGBYTES", "image/jpeg"))
+    def boom(*a, **k):
+        raise M.CalibreError("cover rejected")
+    monkeypatch.setattr(M.calibre, "set_cover", boom)
+    r = client.post("/books/add",
+                    json={"url": "https://www.royalroad.com/fiction/999004"},
+                    headers=TOK)
+    assert r.status_code == 200, r.text
+    assert r.json()["cover_set"] is False and r.json()["book_id"] == 777
+
+
+def test_image_options_reach_downloads_but_never_metadata_fetches():
+    """FanFicFare pulls the cover during METADATA collection when images are
+    on, so a Check must not carry the option."""
+    from ficsync import sites
+    from ficsync.main import cfg as live_cfg
+    assert sites.download_options(live_cfg) == ["-o", "include_images=true"]
+    assert "include_images" not in " ".join(sites._fff_base_cmd(live_cfg))
