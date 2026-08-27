@@ -1,10 +1,15 @@
 package io.github.thevoidwatches.ratchet;
 
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
 import android.provider.Settings;
+
+import androidx.core.content.FileProvider;
+
+import com.getcapacitor.JSArray;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -33,6 +38,56 @@ public class RatchetNativePlugin extends Plugin {
         JSObject ret = new JSObject();
         ret.put("granted", granted);
         call.resolve(ret);
+    }
+
+    /** Open a local file in a specific app when one of the preferred
+     *  packages is installed, falling back to Android's default resolution.
+     *
+     *  Exists because "default app" choices are keyed to the intent's exact
+     *  shape: on Boox devices the built-in reader wins generic epub VIEW
+     *  intents even when the user has picked Moon+ elsewhere. Targeting the
+     *  package sidesteps resolution entirely.
+     */
+    @PluginMethod
+    public void openFile(PluginCall call) {
+        String path = call.getString("path");
+        String contentType = call.getString("contentType", "application/epub+zip");
+        if (path == null) { call.reject("path is required"); return; }
+
+        java.io.File file = new java.io.File(path);
+        if (!file.exists()) { call.reject("file not found: " + path); return; }
+        Uri uri = FileProvider.getUriForFile(getContext(),
+                getContext().getPackageName() + ".fileprovider", file);
+
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.setDataAndType(uri, contentType);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                | Intent.FLAG_ACTIVITY_NEW_TASK);
+
+        JSArray preferred = call.getArray("packages", new JSArray());
+        for (int i = 0; i < preferred.length(); i++) {
+            try {
+                intent.setPackage(preferred.getString(i));
+                getActivity().startActivity(intent);
+                JSObject ret = new JSObject();
+                ret.put("openedWith", preferred.getString(i));
+                call.resolve(ret);
+                return;
+            } catch (ActivityNotFoundException e) {
+                // not installed (or not visible) — try the next preference
+            } catch (org.json.JSONException e) {
+                break;
+            }
+        }
+        intent.setPackage(null);   // give up targeting; let Android resolve
+        try {
+            getActivity().startActivity(intent);
+            JSObject ret = new JSObject();
+            ret.put("openedWith", "default");
+            call.resolve(ret);
+        } catch (ActivityNotFoundException e) {
+            call.reject("no app can open " + contentType);
+        }
     }
 
     /** Open an http(s) URL in the system browser. The WebView has no download

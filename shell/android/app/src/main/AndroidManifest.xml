@@ -29,6 +29,18 @@
         </provider>
     </application>
 
+    <!-- Package visibility (Android 11+): explicit targets for openFile.
+         Without these, startActivity(setPackage(...)) throws NotFound even
+         when the app is installed. -->
+    <queries>
+        <package android:name="com.flyersoft.moonreaderp" />
+        <package android:name="com.flyersoft.moonreader" />
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="application/epub+zip" />
+        </intent>
+    </queries>
+
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />

@@ -129,13 +129,19 @@ export async function deviceCopyIsStale(meta) {
   return server > st.mtimeMs;
 }
 
-/** Hand the device copy to the reader app (Moon+ via the system chooser). */
+// Opened by explicit package: Android keys "default app" choices to the
+// intent's exact shape, so on Boox the built-in reader hijacks generic epub
+// intents no matter what default the user picked. Preference order: Moon+
+// Pro, Moon+ free, then whatever Android resolves.
+const READER_PACKAGES = ["com.flyersoft.moonreaderp", "com.flyersoft.moonreader"];
+
 export async function openBookInReader(meta) {
   const {uri} = await plugins().Filesystem.getUri(
     {path: devicePath(meta), directory: "EXTERNAL_STORAGE"});
-  await plugins().FileOpener.open({
-    filePath: uri.replace(/^file:\/\//, ""),
+  await plugins().RatchetNative.openFile({
+    path: decodeURIComponent(uri.replace(/^file:\/\//, "")),
     contentType: "application/epub+zip",
+    packages: READER_PACKAGES,
   });
 }
 
