@@ -85,6 +85,17 @@ def _fff_base_cmd(cfg: Config) -> list[str]:
     return cmd
 
 
+def download_options(cfg: Config) -> list[str]:
+    """Options for runs that actually write an epub (add, convert, update).
+
+    Kept out of _fff_base_cmd deliberately: FanFicFare's adapters fetch the
+    cover during METADATA collection whenever include_images is on
+    (base_adapter.setCoverImage), so putting this in the shared prefix would
+    make every Check download an image it then throws away.
+    """
+    return ["-o", f"include_images={cfg.fanficfare.include_images}"]
+
+
 def run_fff(args: list[str], cfg: Config) -> subprocess.CompletedProcess:
     """Run fanficfare with UTF-8 pipes on every platform.
 

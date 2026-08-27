@@ -29,8 +29,8 @@ from .config import Config, load_config
 from .db import Sidecar
 from .fff import FFFError, update_epub
 from .safety import decide, verify_post_update
-from .sites import (RemoteStory, SiteFetchError, fetch_remote,
-                    normalize_story_url, run_fff)
+from .sites import (RemoteStory, SiteFetchError, download_options,
+                    fetch_remote, normalize_story_url, run_fff)
 
 log = logging.getLogger("ficsync")
 
@@ -302,7 +302,8 @@ def add_book(url: str = Body(embed=True), library: str | None = LIB_Q) -> dict:
     with tempfile.TemporaryDirectory(prefix="ficsync_add_") as tmp:
         fresh_path = str(Path(tmp) / "fresh.epub")
         try:
-            proc = run_fff(["-o", f"output_filename={fresh_path}", norm], cfg)
+            proc = run_fff(download_options(cfg) +
+                           ["-o", f"output_filename={fresh_path}", norm], cfg)
         except Exception as e:  # timeout, missing binary, --force guard
             raise HTTPException(502, f"download failed: {e}")
         if proc.returncode != 0 or not Path(fresh_path).is_file():
@@ -319,6 +320,10 @@ def add_book(url: str = Body(embed=True), library: str | None = LIB_Q) -> dict:
                 500, "fresh download failed verification; NOT added to "
                      f"calibre. Problems: {problems}")
         epub_bytes = Path(fresh_path).read_bytes()
+        try:
+            cover = epub_mod.extract_cover(fresh_path)
+        except Exception:      # a malformed epub must not cost us the book
+            cover = None
 
     try:
         res = calibre.add_book(epub_bytes, f"{remote.title or 'story'}.epub", lib)
@@ -334,14 +339,26 @@ def add_book(url: str = Body(embed=True), library: str | None = LIB_Q) -> dict:
             409, "calibre reports a book with this title and author already "
                  f"exists: {res.get('duplicates') or res}")
 
+    # calibre's add-book ignores the epub's own cover, so it is pushed
+    # separately. A book without a cover is still a good book: this never
+    # fails the add.
+    cover_set = False
+    if cover:
+        try:
+            calibre.set_cover(book_id, cover[0], cover[1], lib)
+            cover_set = True
+        except CalibreError as e:
+            log.warning("add: cover for book %s could not be set — %s", book_id, e)
+
     sidecar.save_snapshot(lib, book_id, norm, site_of(norm),
                           [c.as_dict() for c in post], baseline="exact")
-    log.info('add: "%s" → book %s in %s (%d chapters)',
-             res.get("title") or remote.title, book_id, _libname(lib), len(post))
+    log.info('add: "%s" → book %s in %s (%d chapters%s)',
+             res.get("title") or remote.title, book_id, _libname(lib), len(post),
+             "" if cover_set else ", no cover")
     sidecar.log_event(lib, book_id, "added", {"url": norm, "chapters": len(post)})
     return {"book_id": book_id, "title": res.get("title") or remote.title,
             "chapter_count": len(post), "story_url": norm,
-            "site_status": remote.status}
+            "site_status": remote.status, "cover_set": cover_set}
 
 
 @app.get("/books/{book_id}", dependencies=AUTH)
@@ -491,7 +508,8 @@ def convert(book_id: int, library: str | None = LIB_Q) -> dict:
             backup_path = _backup(lib, book_id, epub_path)
             fresh_path = str(Path(tmp.name) / "fresh.epub")
             try:
-                proc = run_fff(["-o", f"output_filename={fresh_path}", url], cfg)
+                proc = run_fff(download_options(cfg) +
+                               ["-o", f"output_filename={fresh_path}", url], cfg)
             except Exception as e:  # timeout, missing binary, --force guard
                 raise HTTPException(502, f"fresh download failed (calibre copy "
                                          f"untouched, backup at {backup_path}): {e}")

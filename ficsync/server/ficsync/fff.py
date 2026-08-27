@@ -44,7 +44,7 @@ import subprocess
 from dataclasses import dataclass
 
 from .config import Config
-from .sites import run_fff  # same binary/config/options/encoding as the metadata fetch
+from .sites import download_options, run_fff  # same binary/config/options/encoding as the metadata fetch
 
 
 class FFFError(Exception):
@@ -64,7 +64,8 @@ _ALWAYS_OVERWRITE = ["-o", "always_overwrite=true"]
 
 def update_epub(epub_path: str, cfg: Config) -> FFFResult:
     try:
-        proc = run_fff(_ALWAYS_OVERWRITE + ["-u", epub_path], cfg)
+        proc = run_fff(_ALWAYS_OVERWRITE + download_options(cfg) +
+                       ["-u", epub_path], cfg)
     except subprocess.TimeoutExpired as e:
         raise FFFError(f"fanficfare -u timed out on {epub_path}") from e
     except FileNotFoundError as e:

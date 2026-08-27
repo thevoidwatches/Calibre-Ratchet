@@ -102,6 +102,46 @@ def read_story_url(epub_path: str) -> str | None:
     return None
 
 
+_IMAGE_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
+                ".gif": "image/gif", ".webp": "image/webp"}
+
+
+def extract_cover(epub_path: str) -> tuple[bytes, str] | None:
+    """The book's cover image as (bytes, media_type), or None if it has none.
+
+    calibre's /cdb/add-book ignores an epub's embedded cover (verified against
+    calibre 9.13), so a newly added book needs its cover pushed separately.
+    Both epub generations are handled: EPUB2's <meta name="cover" content="ID">
+    and EPUB3's manifest item with properties="cover-image".
+    """
+    with zipfile.ZipFile(epub_path) as zf:
+        opf_path, opf = _opf(zf)
+        items = opf.findall(".//opf:manifest/opf:item", _NS)
+
+        item = None
+        meta = opf.find('.//opf:metadata/opf:meta[@name="cover"]', _NS)
+        cover_id = meta.get("content") if meta is not None else None
+        if cover_id:
+            item = next((i for i in items if i.get("id") == cover_id), None)
+        if item is None:
+            item = next((i for i in items
+                         if "cover-image" in (i.get("properties") or "")), None)
+        if item is None or not item.get("href"):
+            return None
+
+        # Manifest hrefs are relative to the OPF, which need not be at the root.
+        href = posixpath.normpath(
+            posixpath.join(posixpath.dirname(opf_path), item.get("href")))
+        media = item.get("media-type") or _IMAGE_TYPES.get(
+            posixpath.splitext(href)[1].lower(), "")
+        if not media.startswith("image/"):
+            return None
+        try:
+            return zf.read(href), media
+        except KeyError:
+            return None      # manifest lies about the file; not worth failing
+
+
 def find_story_url_in_html(epub_path: str) -> str | None:
     """FanFicFare-plugin-style fallback for epubs with no <dc:source>: scan
     the book's HTML for the first link a site adapter recognises, normalised

@@ -102,6 +102,11 @@ class FFFCfg:
     # "refuse": only permit clean appends; anything else needs manual handling.
     non_append_updates: str = "allow"
     timeout_seconds: int = 1800  # big serials over slow sites take a while
+    # Passed only to runs that WRITE an epub, never to metadata-only fetches:
+    # FanFicFare downloads the cover during metadata collection when this is
+    # on, which would make every Check pull an image it has no use for.
+    # "true" (cover + story images), "coveronly", or "false" (FFF's default).
+    include_images: str = "true"
     # Sites temporarily refused for add/check/update/convert (site outages,
     # FFF breakage) — site tags as chapterkeys.site_of returns them, e.g.
     # "archiveofourown.org". The UI hides the buttons for affected books.
@@ -191,6 +196,9 @@ def load_config(path: str | Path) -> Config:
         raise ValueError("service.auth_token must be set (any long random string)")
     if cfg.fanficfare.non_append_updates not in ("allow", "refuse"):
         raise ValueError("fanficfare.non_append_updates must be 'allow' or 'refuse'")
+    if cfg.fanficfare.include_images not in ("true", "false", "coveronly"):
+        raise ValueError("fanficfare.include_images must be 'true', 'false' "
+                         "or 'coveronly'")
     cfg.data_dir.mkdir(parents=True, exist_ok=True)
     cfg.backups_dir.mkdir(parents=True, exist_ok=True)
     return cfg
