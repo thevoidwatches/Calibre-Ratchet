@@ -34,6 +34,7 @@ extra_options = []         # e.g. ["-o", "is_adult=true"]
 non_append_updates = "allow"   # "refuse" to require manual handling of
                                # mid-list insertions/reorders
 timeout_seconds = 1800
+blocked_sites = []          # site tags refused temporarily, e.g. ["archiveofourown.org"]
 
 [politeness]
 min_seconds_between_site_requests = 5.0

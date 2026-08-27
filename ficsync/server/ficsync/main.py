@@ -112,6 +112,22 @@ def _fetch_epub_to_temp(library_id: str, book_id: int) -> tuple[str, tempfile.Te
     return path, tmp
 
 
+def _blocked_site(url: str | None) -> str | None:
+    """The url's site tag when it is on the config blocklist, else None."""
+    if not url:
+        return None
+    site = site_of(url)
+    return site if site in cfg.fanficfare.blocked_sites else None
+
+
+def _reject_blocked(url: str) -> None:
+    site = _blocked_site(url)
+    if site:
+        raise HTTPException(
+            403, f"{site} is currently blocked (fanficfare.blocked_sites in "
+                 "config.toml — site trouble); remove it there to re-enable")
+
+
 def _story_url(library_id: str, book_id: int, epub_path: str) -> str:
     # Primary: the epub's own dc:source (what fanficfare -u itself will use).
     url = epub_mod.read_story_url(epub_path)
@@ -284,6 +300,7 @@ def check(book_id: int, library: str | None = LIB_Q) -> dict:
     epub_path, tmp = _fetch_epub_to_temp(lib, book_id)
     with tmp:
         url = _story_url(lib, book_id, epub_path)
+        _reject_blocked(url)
         local = _local_chapters(epub_path)
         try:
             remote = fetch_remote(url, cfg)
@@ -336,6 +353,9 @@ def story_state(book_id: int, library: str | None = LIB_Q) -> dict:
         "fff_managed": managed,
         "chapter_count": len(chapters),
         "convertible": bool(url) and not managed,
+        # The UI hides Check/Update/Convert while the book's site is on the
+        # config blocklist; the endpoints refuse independently anyway.
+        "site_blocked": bool(_blocked_site(url)),
     }
     with _story_state_lock:
         _story_state_cache[(lib, book_id)] = (stamp, result)
@@ -365,6 +385,7 @@ def convert(book_id: int, library: str | None = LIB_Q) -> dict:
                 raise HTTPException(409, "already FanFicFare-managed — use "
                                          "/update, which can protect chapters")
             url = _story_url(lib, book_id, epub_path)
+            _reject_blocked(url)
             try:
                 remote = fetch_remote(url, cfg)
             except SiteFetchError as e:
@@ -425,6 +446,7 @@ def update(book_id: int, dry_run: bool = False,
         epub_path, tmp = _fetch_epub_to_temp(lib, book_id)
         with tmp:
             url = _story_url(lib, book_id, epub_path)
+            _reject_blocked(url)
             local = _local_chapters(epub_path)
             try:
                 remote = fetch_remote(url, cfg)
