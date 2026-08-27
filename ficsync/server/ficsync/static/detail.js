@@ -28,7 +28,7 @@ async function showCover(id) {
   } catch (e) { /* no cover is not an error */ }
 }
 
-export async function openBook(id) {
+export async function openBook(id, push = true) {
   clearErr();
   state.bookId = id;
   setUpdateAvailable(false);   // a Check on the previous book says nothing here
@@ -43,7 +43,9 @@ export async function openBook(id) {
     $("dSeries").textContent = series;
     $("dSeries").hidden = !series;
     $("dAuthors").textContent = (m.authors || []).join(", ");
-    show("detail");
+    show("detail", push);
+    // The entry needs the book id so popstate can reopen this exact book.
+    if (push) history.replaceState({view: "detail", bookId: id}, "");
     showCover(id);
     await loadCats();          // catNameFor needs the category map
     renderEditors(m);

@@ -31,6 +31,12 @@ globalThis.document = {
   addEventListener: noop,
   body: stubElement("body"),
 };
+globalThis.history = {
+  state: null,
+  pushState(st) { this.state = st; },
+  replaceState(st) { this.state = st; },
+  back: noop,
+};
 globalThis.window = {
   addEventListener: noop,
   dispatchEvent: noop,

@@ -7,9 +7,22 @@ import "./actions.js";    // side effect: check/update/epub button handlers
 import { initSfx, play } from "./sfx.js";
 import { initTheme } from "./theme.js";
 import { initFilters, loadSavedFilters } from "./filters.js";
+import { openBook } from "./detail.js";
 
+// On-screen back/cancel buttons pop history rather than jumping, so they and
+// the system back button always agree about where "back" goes.
 document.querySelectorAll("[data-nav]").forEach(b =>
-  b.addEventListener("click", () => show(b.dataset.nav)));
+  b.addEventListener("click", () => history.back()));
+
+const POP_VIEWS = new Set(["browse", "pickcol", "detail", "token"]);
+window.addEventListener("popstate", e => {
+  const st = e.state || {view: "browse"};
+  if (st.view === "detail" && st.bookId) { openBook(st.bookId, false); return; }
+  // A pickval entry reopens as the column list: the value screen only means
+  // something for the column that was being picked at the time.
+  const view = st.view === "pickval" ? "pickcol" : st.view;
+  show(POP_VIEWS.has(view) ? view : "browse", false);
+});
 
 initTheme();
 initSfx();
@@ -110,7 +123,7 @@ function initSort(uiCfg) {
 
 async function boot({announce = false} = {}) {
   clearErr();
-  if (!state.token) { resetLibrarySelect(); show("token"); return; }
+  if (!state.token) { resetLibrarySelect(); show("token", false); return; }
   try {
     const uiCfg = await apiJson("/ui-config");
     state.writable = uiCfg.writable_fields || [];

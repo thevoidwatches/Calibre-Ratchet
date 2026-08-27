@@ -77,7 +77,7 @@ export async function api(path, opts = {}) {
   opts.headers = Object.assign({"X-Api-Token": state.token}, opts.headers || {});
   const r = await fetch(withLibrary(path), opts);
   if (r.status === 401) {
-    show("token");
+    show("token", false);   // an auth bounce is not a navigation
     window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT));
     throw new Error("bad token");
   }
@@ -94,10 +94,17 @@ export const apiJson = async (path, opts) => (await api(path, opts)).json();
 
 const VIEWS = {token: "vToken", browse: "vBrowse", pickcol: "vPickCol",
                pickval: "vPickVal", detail: "vDetail"};
-export function show(name) {
+export function show(name, push = true) {
   for (const v of Object.values(VIEWS)) $(v).hidden = true;
   $(VIEWS[name]).hidden = false;
   window.scrollTo(0, 0);
+  // Each view change becomes a history entry so the system back button (vital
+  // once this runs inside an Android shell) walks views instead of closing
+  // the app. The first recorded view becomes the root entry.
+  if (!push) return;
+  if (history.state && history.state.view === name) return;
+  if (history.state === null) history.replaceState({view: name}, "");
+  else history.pushState({view: name}, "");
 }
 
 // fnmatch subset: * and ? only — matches the server-side fnmatch use.

@@ -348,3 +348,29 @@ def test_collapse_markers_are_real_arrows_and_match_the_filter_bar():
     # The same glyphs the filter bar draws, so the two read alike.
     assert "\u25b8" in client.get("/ui/browse.js").text
     assert "\u25be" in client.get("/ui/browse.js").text
+
+
+def test_icon_set_is_served_and_declared():
+    for path in ["/ui/icon.svg", "/ui/icon-192.png", "/ui/icon-512.png",
+                 "/ui/icon-maskable-512.png"]:
+        assert client.get(path).status_code == 200, path
+    assert "<svg" in client.get("/ui/icon.svg").text
+    icons = client.get("/ui/manifest.webmanifest").json()["icons"]
+    assert {i["src"] for i in icons} == {"icon-192.png", "icon-512.png",
+                                         "icon-maskable-512.png"}
+    assert any(i.get("purpose") == "maskable" for i in icons)
+    assert 'rel="icon"' in client.get("/ui/").text
+
+
+def test_views_participate_in_history_for_the_android_back_button():
+    assert "pushState" in client.get("/ui/core.js").text
+    app = client.get("/ui/app.js").text
+    assert "popstate" in app and "history.back()" in app
+
+
+def test_header_wordmark_is_wired_and_inverts_in_dark_mode():
+    assert client.get("/ui/logo.png").status_code == 200
+    html = client.get("/ui/").text
+    assert 'src="logo.png"' in html and 'alt="Ratchet"' in html
+    css = client.get("/ui/ui.css").text
+    assert "invert(1)" in css      # dark-mode flip for the black-outline art
