@@ -95,6 +95,16 @@ class Sidecar:
                  for i, c in enumerate(chapters)],
             )
 
+    def find_by_url(self, library_id: str, story_url: str) -> int | None:
+        """Book id already recorded for this story in this library, if any —
+        the duplicate guard for adding by URL. Only sees books ficsync has
+        snapshotted (added, checked, or updated through it)."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT book_id FROM books WHERE library_id=? AND story_url=?",
+                (library_id, story_url)).fetchone()
+        return row[0] if row else None
+
     def get_snapshot(self, library_id: str, book_id: int) -> dict | None:
         with self._lock:
             row = self._conn.execute(

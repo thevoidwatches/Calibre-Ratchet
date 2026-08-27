@@ -436,3 +436,123 @@ def test_story_state_requires_token_and_fails_cleanly_offline():
 
 def test_convert_requires_token():
     assert client.post("/books/1/convert").status_code == 401
+
+
+# --- adding a story by URL ---------------------------------------------------
+
+def test_add_book_requires_token():
+    assert client.post("/books/add", json={"url": "x"}).status_code == 401
+
+
+def test_add_book_rejects_unrecognised_url():
+    # No FanFicFare adapter for example.com; nothing is fetched.
+    r = client.post("/books/add", json={"url": "https://example.com/nope"},
+                    headers=TOK)
+    assert r.status_code == 422
+    assert "adapter" in r.json()["detail"]
+
+
+def test_add_book_downloads_verifies_and_records(monkeypatch):
+    """Happy path with the site, FFF, and calibre all stubbed — and the
+    snapshot it stores must then trip the duplicate guard."""
+    from ficsync import main as M
+    from ficsync.epub import Chapter
+
+    chs = [Chapter(key="c1", url="https://site/1", title="One"),
+           Chapter(key="c2", url="https://site/2", title="Two")]
+    url = "https://www.royalroad.com/fiction/424242"
+    remote = M.RemoteStory(title="Stub Story", site="royalroad.com",
+                           status="In-Progress", chapters=chs, raw={})
+
+    monkeypatch.setattr(M, "normalize_story_url", lambda u: url)
+    monkeypatch.setattr(M, "fetch_remote", lambda u, cfg: remote)
+
+    def fake_run_fff(args, cfg):
+        out = next(a for a in args if a.startswith("output_filename=")
+                   ).split("=", 1)[1]
+        Path(out).write_bytes(b"stub epub")
+        class Proc:
+            returncode, stdout, stderr = 0, "", ""
+        return Proc()
+    monkeypatch.setattr(M, "run_fff", fake_run_fff)
+    monkeypatch.setattr(M.epub_mod, "extract_chapters", lambda p: chs)
+
+    pushed = {}
+    def fake_add(data, filename, lib):
+        pushed.update(data=data, filename=filename, lib=lib)
+        return {"book_id": 4242, "title": "Stub Story"}
+    monkeypatch.setattr(M.calibre, "add_book", fake_add)
+
+    r = client.post("/books/add", json={"url": url}, headers=TOK)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["book_id"] == 4242
+    assert body["chapter_count"] == 2
+    assert pushed["data"] == b"stub epub"
+    assert pushed["filename"] == "Stub Story.epub"
+
+    # The snapshot written on add is what makes re-adding a 409.
+    dup = client.post("/books/add", json={"url": url}, headers=TOK)
+    assert dup.status_code == 409
+    assert "4242" in dup.json()["detail"]
+
+
+def test_add_book_refuses_when_fresh_epub_fails_verification(monkeypatch):
+    from ficsync import main as M
+    from ficsync.epub import Chapter
+
+    remote_chs = [Chapter(key="c1", url="u1", title="One"),
+                  Chapter(key="c2", url="u2", title="Two")]
+    url = "https://www.royalroad.com/fiction/515151"
+    remote = M.RemoteStory(title="Short Story", site="royalroad.com",
+                           status="In-Progress", chapters=remote_chs, raw={})
+
+    monkeypatch.setattr(M, "normalize_story_url", lambda u: url)
+    monkeypatch.setattr(M, "fetch_remote", lambda u, cfg: remote)
+
+    def fake_run_fff(args, cfg):
+        out = next(a for a in args if a.startswith("output_filename=")
+                   ).split("=", 1)[1]
+        Path(out).write_bytes(b"stub epub")
+        class Proc:
+            returncode, stdout, stderr = 0, "", ""
+        return Proc()
+    monkeypatch.setattr(M, "run_fff", fake_run_fff)
+    # The fresh epub is missing a chapter the site lists.
+    monkeypatch.setattr(M.epub_mod, "extract_chapters", lambda p: remote_chs[:1])
+
+    r = client.post("/books/add", json={"url": url}, headers=TOK)
+    assert r.status_code == 500
+    assert "NOT added" in r.json()["detail"]
+
+
+def test_blocked_site_rejects_add_before_touching_the_site(monkeypatch):
+    """With a site on the blocklist, adding one of its stories is a clean 403
+    — and nothing is fetched (fetch_remote would blow up if called)."""
+    from ficsync import main as M
+    monkeypatch.setattr(M.cfg.fanficfare, "blocked_sites", ["archiveofourown.org"])
+    monkeypatch.setattr(M, "fetch_remote",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("fetched")))
+    r = client.post("/books/add",
+                    json={"url": "https://archiveofourown.org/works/20024074"},
+                    headers=TOK)
+    assert r.status_code == 403
+    assert "blocked" in r.json()["detail"]
+
+
+def test_unblocked_sites_are_unaffected_by_the_blocklist(monkeypatch):
+    from ficsync import main as M
+    monkeypatch.setattr(M.cfg.fanficfare, "blocked_sites", ["archiveofourown.org"])
+    # Royal Road passes the block check and proceeds to the site fetch, which
+    # this stub fails — proving the request got past the blocklist.
+    class Boom(Exception):
+        pass
+    def explode(*a, **k):
+        raise M.SiteFetchError("stub reached the fetch stage")
+    monkeypatch.setattr(M, "fetch_remote", explode)
+    # An id no other test snapshots, or the duplicate guard answers first.
+    r = client.post("/books/add",
+                    json={"url": "https://www.royalroad.com/fiction/999001/x"},
+                    headers=TOK)
+    assert r.status_code == 502
+    assert "fetch stage" in r.json()["detail"]

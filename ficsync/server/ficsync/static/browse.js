@@ -5,6 +5,7 @@ import { seriesLabel } from "./format.js";
 import { buildQuery, describeFilters, isDownloadedAtom, isPresetAtom } from "./query.js";
 import { openBook } from "./detail.js";
 import { downloadedIds } from "./catalog.js";
+import { play } from "./sfx.js";
 
 const COLLAPSE_KEY = "ficsync_filters_collapsed";
 
@@ -140,3 +141,76 @@ function startPicking(groupIndex) {
 
 $("searchForm").addEventListener("submit", e => { e.preventDefault(); search(); });
 $("btnMore").onclick = () => search(true);
+
+// ---- adding stories by URL --------------------------------------------------
+//
+// The button never locks: each URL joins a queue and the downloads run one at
+// a time (FanFicFare fetches every chapter, so parallel adds would hammer the
+// site). Each entry pins the library it was queued under, so switching
+// libraries mid-queue cannot re-route a pending story. A single add still
+// opens the new book; a batch stays on the list and reports per URL, since
+// being yanked into each book as it lands would fight the next paste.
+
+const addQueue = [];
+let addRunning = false;
+let addBatchTotal = 0;   // adds in the current batch, for the single-add case
+
+function renderAddButton() {
+  const btn = $("btnAddStory");
+  btn.textContent = addRunning
+    ? "adding…" + (addQueue.length ? " +" + addQueue.length : "")
+    : "+ Add";
+}
+
+function addStatusLine(text) {
+  const box = $("addStatus");
+  box.hidden = false;
+  const line = document.createElement("div");
+  line.textContent = text;
+  box.append(line);
+}
+
+$("btnAddStory").onclick = () => {
+  const url = prompt(
+    "Story URL to add to " + (state.library || "the library") + ":\n\n" +
+    "The whole story is downloaded first, which can take minutes. Downloads " +
+    "finish on the server even if you close the app; you can also keep " +
+    "hitting + Add — extra stories queue up.");
+  if (!url || !url.trim()) return;
+  if (!addRunning) {           // a fresh batch replaces the old batch's report
+    $("addStatus").innerHTML = "";
+    $("addStatus").hidden = true;
+    addBatchTotal = 0;
+  }
+  addBatchTotal += 1;
+  addQueue.push({url: url.trim(), library: state.library});
+  runAddQueue();
+};
+
+async function runAddQueue() {
+  if (addRunning) { renderAddButton(); return; }
+  addRunning = true;
+  let last = null;
+  while (addQueue.length) {
+    const {url, library} = addQueue.shift();
+    renderAddButton();
+    try {
+      const d = await apiJson(
+        "/books/add" + (library ? "?library=" + encodeURIComponent(library) : ""), {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({url}),
+      });
+      last = d;
+      play("success");
+      addStatusLine("✓ " + d.title + " — " + d.chapter_count + " chapters");
+    } catch (e) {
+      play("error");
+      addStatusLine("✗ " + url + " — " + e.message);
+    }
+  }
+  addRunning = false;
+  renderAddButton();
+  if (addBatchTotal === 1 && last) openBook(last.book_id);
+  else if (last) search();     // the list should show what just landed
+}

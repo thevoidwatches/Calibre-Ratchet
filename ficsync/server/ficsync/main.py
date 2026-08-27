@@ -10,6 +10,7 @@ a per-book lock prevents two updates of the same book racing each other.
 from __future__ import annotations
 
 import fnmatch
+import logging
 import os
 import tempfile
 import threading
@@ -27,9 +28,17 @@ from .chapterkeys import site_of
 from .config import Config, load_config
 from .db import Sidecar
 from .fff import FFFError, update_epub
-from .sites import run_fff
 from .safety import decide, verify_post_update
-from .sites import RemoteStory, SiteFetchError, fetch_remote, run_fff
+from .sites import (RemoteStory, SiteFetchError, fetch_remote,
+                    normalize_story_url, run_fff)
+
+log = logging.getLogger("ficsync")
+
+
+def _libname(lib: str | None) -> str:
+    """Console-friendly name for the default library ('' in config)."""
+    return lib or "(default)"
+
 
 CONFIG_PATH = os.environ.get("FICSYNC_CONFIG", "config.toml")
 
@@ -256,6 +265,83 @@ def list_books(q: str = Query(default=""), num: int = 50, offset: int = 0,
             "formats": m.get("formats"),
         })
     return {"total": res.get("total_num"), "books": books}
+
+
+@app.post("/books/add", dependencies=AUTH)
+def add_book(url: str = Body(embed=True), library: str | None = LIB_Q) -> dict:
+    """Add a NEW story to the library from its URL: preflight the site,
+    download a fresh epub with FanFicFare, verify it against the site's own
+    chapter list, then push it into calibre as a new book.
+
+    The new-download analogue of /convert: no local chapters exist yet, so
+    there is nothing for the ratchet to protect — the post-verify (fresh epub
+    matches the site's chapter list exactly) is the whole guarantee. Two
+    duplicate guards: ficsync's own records by story URL, and calibre's
+    title+author check on add.
+    """
+    lib = _lib(library)
+    norm = normalize_story_url(url)
+    if not norm:
+        raise HTTPException(
+            422, f"no FanFicFare adapter recognises this URL: {url!r}")
+    _reject_blocked(norm)
+    existing = sidecar.find_by_url(lib, norm)
+    if existing is not None:
+        raise HTTPException(
+            409, f"already in this library as book {existing} "
+                 "(per ficsync's records)")
+    log.info("add: %s → checking the site…", norm)
+    try:
+        remote = fetch_remote(norm, cfg)
+    except SiteFetchError as e:
+        sidecar.log_event(lib, None, "add_error", {"url": norm, "error": str(e)})
+        raise HTTPException(502, str(e))
+
+    log.info('add: "%s" — %d chapters, FanFicFare downloading…',
+             remote.title, len(remote.chapters))
+    with tempfile.TemporaryDirectory(prefix="ficsync_add_") as tmp:
+        fresh_path = str(Path(tmp) / "fresh.epub")
+        try:
+            proc = run_fff(["-o", f"output_filename={fresh_path}", norm], cfg)
+        except Exception as e:  # timeout, missing binary, --force guard
+            raise HTTPException(502, f"download failed: {e}")
+        if proc.returncode != 0 or not Path(fresh_path).is_file():
+            tail = ((proc.stdout or "") + (proc.stderr or "")).strip()[-800:]
+            sidecar.log_event(lib, None, "add_error", {"url": norm, "error": tail})
+            raise HTTPException(502, f"download failed: {tail}")
+
+        post = epub_mod.extract_chapters(fresh_path)
+        problems = verify_post_update(remote.chapters, post)
+        if problems:
+            sidecar.log_event(lib, None, "add_postcheck_failed",
+                              {"url": norm, "problems": problems})
+            raise HTTPException(
+                500, "fresh download failed verification; NOT added to "
+                     f"calibre. Problems: {problems}")
+        epub_bytes = Path(fresh_path).read_bytes()
+
+    try:
+        res = calibre.add_book(epub_bytes, f"{remote.title or 'story'}.epub", lib)
+    except CalibreError as e:
+        sidecar.log_event(lib, None, "add_error", {"url": norm, "error": str(e)})
+        raise HTTPException(502, "epub downloaded and verified but adding to "
+                                 f"calibre failed: {e}")
+    book_id = res.get("book_id")
+    if book_id is None:
+        # add_duplicates='n': calibre matched an existing title+author and
+        # created nothing.
+        raise HTTPException(
+            409, "calibre reports a book with this title and author already "
+                 f"exists: {res.get('duplicates') or res}")
+
+    sidecar.save_snapshot(lib, book_id, norm, site_of(norm),
+                          [c.as_dict() for c in post], baseline="exact")
+    log.info('add: "%s" → book %s in %s (%d chapters)',
+             res.get("title") or remote.title, book_id, _libname(lib), len(post))
+    sidecar.log_event(lib, book_id, "added", {"url": norm, "chapters": len(post)})
+    return {"book_id": book_id, "title": res.get("title") or remote.title,
+            "chapter_count": len(post), "story_url": norm,
+            "site_status": remote.status}
 
 
 @app.get("/books/{book_id}", dependencies=AUTH)
