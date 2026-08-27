@@ -24,7 +24,7 @@ identifier_key = "url"     # where the FFF plugin stores story URLs (fallback on
                            # the epub's dc:source is used first)
 genre_field = "#genre"     # custom column shown beside tags in the book list
                            # ("" to show none)
-writable_fields = ["tags", "rating", "#*"]   # fnmatch patterns for POST /fields
+writable_fields = ["title", "tags", "rating", "#*"]   # fnmatch patterns for POST /fields
 
 [fanficfare]
 binary = "fanficfare"      # leave as-is: if not on PATH (unactivated venv), ficsync

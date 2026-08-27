@@ -6,6 +6,7 @@ import { loadCats, loadCatItems } from "./picker.js";
 import { play } from "./sfx.js";
 import { refreshActions, setUpdateAvailable } from "./actions.js";
 import { refreshOpenBook } from "./catalog.js";
+import { openExternal } from "./storage.js";
 
 // Category display name for a field ("#genre" -> "Genre"), so the chip
 // editors reuse the vocabulary the filter picker already loads.
@@ -29,6 +30,30 @@ async function showCover(id) {
   } catch (e) { /* no cover is not an error */ }
 }
 
+/** The heading block (title, series, authors) — shared by opening a book and
+ *  re-rendering after a save, so a title edit shows up everywhere at once. */
+function renderHead(m) {
+  state.bookMeta = m;          // the epub download names the file from this
+  $("dTitle").textContent = m.title || ("book " + state.bookId);
+  $("btnEditTitle").hidden = !isWritable("title");
+  const series = seriesLabel(m);
+  $("dSeries").textContent = series;
+  $("dSeries").hidden = !series;
+  $("dAuthors").textContent = (m.authors || []).join(", ");
+}
+
+/** Pencil beside the title — exists mostly to excise the tag lists Royal
+ *  Road authors pack into titles ("Story Name (Progression, LitRPG)"). */
+$("btnEditTitle").onclick = () => {
+  const cur = (state.bookMeta || {}).title || "";
+  const v = prompt("Title:", cur);
+  if (v === null) return;
+  const t = v.trim();
+  if (!t || t === cur) return;
+  saveField("title", t)
+    .catch(e => { err("save failed — " + e.message); play("error"); });
+};
+
 export async function openBook(id, push = true) {
   clearErr();
   state.bookId = id;
@@ -38,12 +63,7 @@ export async function openBook(id, push = true) {
   try {
     const data = await apiJson("/books/" + id);
     const m = data.calibre || {};
-    state.bookMeta = m;          // the epub download names the file from this
-    $("dTitle").textContent = m.title || ("book " + id);
-    const series = seriesLabel(m);
-    $("dSeries").textContent = series;
-    $("dSeries").hidden = !series;
-    $("dAuthors").textContent = (m.authors || []).join(", ");
+    renderHead(m);
     show("detail", push);
     // The entry needs the book id so popstate can reopen this exact book.
     if (push) history.replaceState({view: "detail", bookId: id}, "");
@@ -69,10 +89,11 @@ function renderEvents(events) {
   box.append(ul);
 }
 
-// Editing order, most-used first. Anything writable but unlisted keeps its
-// natural order after these. Built per call, not once at module load, because
-// the genre field arrives from /ui-config after this module is evaluated.
-const fieldOrder = () => [state.genreField, "tags", "#readinglist"];
+// Editing order. Fandom (the Fanfiction library's column) leads when present;
+// anything writable but unlisted keeps its natural order after these. Built
+// per call, not once at module load, because the genre field arrives from
+// /ui-config after this module is evaluated.
+const fieldOrder = () => ["#fandom", state.genreField, "tags", "#readinglist"];
 
 function editableColumns(meta) {
   // tags is a builtin multi-value field; custom columns come from
@@ -110,14 +131,17 @@ async function saveField(field, value) {
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify(body),
   });
-  // Re-fetch so the chips always show calibre's actual state.
+  // Re-fetch so the page always shows calibre's actual state — including the
+  // heading, which a title edit changes.
   const data = await apiJson("/books/" + state.bookId);
+  const m = data.calibre || {};
+  renderHead(m);
   $("dFields").innerHTML = "";
   // A tag added here is new vocabulary; drop the cache so it autocompletes next time.
   state.catItems = {};
-  renderEditors(data.calibre || {});
+  renderEditors(m);
   // Shell only: keep the offline catalog's copy of this book current too.
-  refreshOpenBook(data.calibre || {}).catch(() => {});
+  refreshOpenBook(m).catch(() => {});
   play("success");
 }
 
@@ -141,34 +165,76 @@ function summaryOf(col) {
   return v || "—";
 }
 
+/** A collapsible section shell shared by every field on the page, wired to
+ *  the per-device open-state store. <details> rather than a button:
+ *  open/close works without script, and keyboard and screen-reader behaviour
+ *  come for free. The toggle listener is attached after the initial state is
+ *  set, so opening a book does not record a preference the reader never
+ *  expressed. */
+function fieldShell(key, label, summaryValue) {
+  const fs = document.createElement("details");
+  fs.className = "fieldset";
+  fs.open = fieldIsOpen(key);
+  const head = document.createElement("summary");
+  const lab = document.createElement("span");
+  lab.className = "flabel";
+  lab.textContent = label;
+  const current = document.createElement("span");
+  current.className = "fvalue muted small";
+  current.textContent = summaryValue;
+  head.append(lab, current);
+  fs.append(head);
+  fs.addEventListener("toggle", () =>
+    localStorage.setItem(openKey(key), fs.open ? "1" : "0"));
+  return fs;
+}
+
+/** calibre's comments field is site-authored HTML; keep the formatting but
+ *  strip anything active before it goes into the DOM. */
+function sanitizedDescription(html) {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  for (const el of doc.querySelectorAll(
+      "script, style, iframe, object, embed, link, meta"))
+    el.remove();
+  for (const el of doc.body.querySelectorAll("*")) {
+    for (const attr of [...el.attributes]) {
+      const n = attr.name.toLowerCase();
+      if (n.startsWith("on") ||
+          ((n === "href" || n === "src") && /^\s*javascript:/i.test(attr.value)))
+        el.removeAttribute(attr.name);
+    }
+  }
+  return doc.body.innerHTML;
+}
+
+function renderDescription(host, meta) {
+  const html = (meta.comments || "").trim();
+  if (!html) return;
+  const fs = fieldShell("description", "Description", "");
+  const body = document.createElement("div");
+  body.className = "desc";
+  body.innerHTML = sanitizedDescription(html);
+  // Links in a description would navigate the whole app (fatal in the shell,
+  // where this page IS the app) — send them to the system browser instead.
+  body.addEventListener("click", e => {
+    const a = e.target.closest("a");
+    if (!a || !a.href) return;
+    e.preventDefault();
+    openExternal(a.href);
+  });
+  fs.append(body);
+  host.append(fs);
+}
+
 function renderEditors(meta) {
   const host = $("dFields");
   for (const col of editableColumns(meta)) {
-    // <details> rather than a button: open/close works without script, and
-    // keyboard and screen-reader behaviour come for free.
-    const fs = document.createElement("details");
-    fs.className = "fieldset";
-    fs.open = fieldIsOpen(col.field);
-
-    const head = document.createElement("summary");
-    const label = document.createElement("span");
-    label.className = "flabel";
-    label.textContent = col.label;
-    const current = document.createElement("span");
-    current.className = "fvalue muted small";
-    current.textContent = summaryOf(col);
-    head.append(label, current);
-    fs.append(head);
-
+    const fs = fieldShell(col.field, col.label, summaryOf(col));
     if (col.multi) renderMultiEditor(fs, col);
     else renderSingleEditor(fs, col);
     host.append(fs);
-
-    // Attached after the initial state is set, so opening this book does not
-    // record a preference the reader never expressed.
-    fs.addEventListener("toggle", () =>
-      localStorage.setItem(openKey(col.field), fs.open ? "1" : "0"));
   }
+  renderDescription(host, meta);
 }
 
 function renderMultiEditor(fs, col) {

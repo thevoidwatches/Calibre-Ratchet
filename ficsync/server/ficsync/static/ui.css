@@ -98,6 +98,12 @@ details.fieldset > summary .fvalue { flex: 1 1 auto; min-width: 0;
                                      white-space: nowrap; text-align: right; }
 details.fieldset[open] > summary .fvalue { display: none; }
 
+/* Site-authored description HTML: keep it inside its box whatever it holds. */
+.fieldset .desc { margin: 6px 0 2px; overflow-wrap: anywhere; }
+.fieldset .desc img { max-width: 100%; height: auto; }
+.fieldset .desc p:first-child { margin-top: 0; }
+.fieldset .desc p:last-child { margin-bottom: 0; }
+
 .tree { list-style: none; padding-left: 0; }
 .tree ul { list-style: none; padding-left: 18px; }
 .tree .node { display: inline-block; padding: 7px 4px; min-height: 38px; }
@@ -178,6 +184,10 @@ button.small.icon { min-width: 40px; padding: 6px 8px; }
                 border-radius: 4px; background: var(--bg); }
 .bookhead-text { min-width: 0; }
 .bookhead h2 { margin: 0 0 2px; font-size: 1.15rem; overflow-wrap: anywhere; }
+/* The pencil beside the title: borderless so the title stays the focus, but
+   still a 34px tap target. */
+.editicon { border: none; background: none; color: var(--muted); font: inherit;
+            min-height: 34px; min-width: 34px; padding: 2px 6px; cursor: pointer; }
 .series { font-style: italic; font-size: 0.9rem; }
 
 /* Check / Update / Get EPUB sit together, centred. */

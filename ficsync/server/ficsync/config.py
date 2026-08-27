@@ -88,7 +88,7 @@ class CalibreCfg:
     # Custom column shown beside tags in the book list. Blank to show none.
     genre_field: str = "#genre"
     # fnmatch patterns for fields writable via POST /books/{id}/fields
-    writable_fields: list[str] = field(default_factory=lambda: ["tags", "rating", "#*"])
+    writable_fields: list[str] = field(default_factory=lambda: ["title", "tags", "rating", "#*"])
 
 
 @dataclass
