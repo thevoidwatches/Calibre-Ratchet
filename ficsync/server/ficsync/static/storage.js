@@ -10,7 +10,8 @@
 // checks for and requests; folder creation itself goes through the stock
 // Filesystem plugin. In a plain browser every export here is an inert no-op.
 "use strict";
-import { $, state } from "./core.js";
+import { $, api, state } from "./core.js";
+import { epubFilename } from "./format.js";
 
 const ROOT = "Ratchet";
 
@@ -74,6 +75,68 @@ export async function ensureStorage() {
 export function openExternal(url) {
   if (inShell()) return plugins().RatchetNative.openUrl({url});
   window.location.href = url;
+}
+
+// ---- device copies of books (Ratchet/<library>/<filename>.epub) ----
+
+function devicePath(meta) {
+  return ROOT + "/" + (state.library || "Library") + "/" + epubFilename(meta);
+}
+
+/** stat for this book's device copy: {mtimeMs, size} or null when absent. */
+export async function statBook(meta) {
+  if (!inShell()) return null;
+  try {
+    const st = await plugins().Filesystem.stat(
+      {path: devicePath(meta), directory: "EXTERNAL_STORAGE"});
+    return {mtimeMs: Number(st.mtime) || 0, size: Number(st.size) || 0};
+  } catch (e) { return null; }
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onerror = () => reject(r.error);
+    r.onload = () => resolve(String(r.result).split(",", 2)[1]);
+    r.readAsDataURL(blob);
+  });
+}
+
+/** Download the epub from the server and write it over the device copy —
+ *  same path every time, so Moon+ keeps its reading position. */
+export async function saveBookToDevice(meta) {
+  // The calibre metadata object has no plain .id; the open book's id lives in
+  // shared state.
+  const blob = await (await api("/books/" + state.bookId + "/epub")).blob();
+  await plugins().Filesystem.writeFile({
+    path: devicePath(meta),
+    directory: "EXTERNAL_STORAGE",
+    data: await blobToBase64(blob),
+    recursive: true,
+  });
+}
+
+export async function deleteBookFromDevice(meta) {
+  await plugins().Filesystem.deleteFile(
+    {path: devicePath(meta), directory: "EXTERNAL_STORAGE"});
+}
+
+/** True when the device copy is missing or older than calibre's copy. */
+export async function deviceCopyIsStale(meta) {
+  const st = await statBook(meta);
+  if (!st) return true;
+  const server = Date.parse(meta.last_modified || "") || 0;
+  return server > st.mtimeMs;
+}
+
+/** Hand the device copy to the reader app (Moon+ via the system chooser). */
+export async function openBookInReader(meta) {
+  const {uri} = await plugins().Filesystem.getUri(
+    {path: devicePath(meta), directory: "EXTERNAL_STORAGE"});
+  await plugins().FileOpener.open({
+    filePath: uri.replace(/^file:\/\//, ""),
+    contentType: "application/epub+zip",
+  });
 }
 
 export function initStorage() {
