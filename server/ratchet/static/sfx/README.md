@@ -9,8 +9,11 @@ you don't have to convert anything.
 | `success` | an update finished and was pushed to calibre, or a metadata edit saved |
 | `refused`  | a safe-refusal: chapters would have been lost, or a non-append update was declined |
 | `error`    | anything failed — network, calibre, FanFicFare, post-verify |
+| `page-shift` | the whole page changes: opening a book, returning to the list, entering the filter picker |
+| `select`   | a smaller move: stepping deeper into the filter picker, opening or closing a collapsible section |
+| `tap_01` … `tap_05` | any other button, chip or control — one of the five is chosen at random per press, so repeated presses don't sound mechanical |
 
-All three are optional; a missing file just means no sound for that outcome.
+Every file is optional; a missing one just means no sound in that case.
 
 Notes:
 - Keep them short (under ~2s) and small. They're fetched over the tailnet and
