@@ -25,6 +25,12 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1        # if blocked: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 pip install -r requirements.txt
 
+# Optional, Windows only: build .venv\Scripts\Ratchet.exe so Task Manager
+# lists the service as "Ratchet" rather than "Python". Re-run it after
+# recreating the venv or upgrading Python; without it Ratchet.vbs simply
+# falls back to pythonw.exe.
+python scripts\make_launcher_exe.py
+
 Copy-Item config.example.toml config.toml
 # Edit config.toml: auth_token (any long random string), calibre URL.
 # calibre creds go in a .env file next to config.toml (both .gitignore'd):
