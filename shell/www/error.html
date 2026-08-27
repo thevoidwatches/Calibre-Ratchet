@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ratchet</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #fff; color: #000;
+         display: flex; min-height: 100vh; margin: 0; align-items: center;
+         justify-content: center; text-align: center; }
+  @media (prefers-color-scheme: dark) { body { background: #000; color: #fff; } }
+  main { padding: 24px; max-width: 26em; }
+  button { font: inherit; border: 2px solid currentColor; background: none;
+           color: inherit; border-radius: 6px; padding: 10px 22px; min-height: 44px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Can't reach Ratchet</h1>
+  <p>The server didn't answer. Check that the PC is on, the service is running
+  (run.bat), and Tailscale is connected on this device.</p>
+  <button onclick="location.href='http://desktop-2mmhpaf.tail77896d.ts.net:8484/ui/'">Retry</button>
+</main>
+</body>
+</html>

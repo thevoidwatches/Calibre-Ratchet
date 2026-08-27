@@ -1,0 +1,17 @@
+{
+  "name": "ratchet-shell",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Native Android shell around the served Ratchet UI",
+  "scripts": {
+    "sync": "cap sync android",
+    "build": "cd android && gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor-community/file-opener": "^8.0.1",
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/filesystem": "^8.1.3"
+  }
+}

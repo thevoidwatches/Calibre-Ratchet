@@ -156,6 +156,35 @@ Make the calibre content server autostart too (calibre Preferences →
 Sharing over the net → "Run server automatically when calibre starts", plus
 calibre itself in `shell:startup` — or run `calibre-server` as its own task).
 
+## The Android shell
+
+`shell/` wraps the served UI in a native Android app (Capacitor). The WebView
+loads `http://desktop-2mmhpaf.tail77896d.ts.net:8484/ui/` — the same files the
+browser gets — so UI changes ship by editing the server, never by rebuilding
+the APK. The shell exists to hold native permissions (filesystem, opening
+files in other apps); it rebuilds only when the native plugin list changes.
+
+Build (JDK 21 and the Android SDK live under `C:\Users\Cassandra\android-dev`,
+installed without Android Studio):
+
+```powershell
+cd shell
+npx cap sync android
+cd android
+$env:JAVA_HOME = "C:\Users\Cassandra\android-dev\jdk-21.0.12.1+1"
+$env:ANDROID_HOME = "C:\Users\Cassandra\android-dev\sdk"
+.\gradlew assembleDebug
+Copy-Item app\build\outputs\apk\debug\app-debug.apk `
+          $env:LOCALAPPDATA\ficsync\ratchet.apk
+```
+
+Install on a device: open `http://<server>:8484/apk` in the device's browser,
+download, and allow the install ("install unknown apps" prompt). The route is
+unauthenticated because a browser download cannot send the token header and
+the APK holds no secrets. Icons and splashes regenerate from `shell/assets/`
+via `npx @capacitor/assets generate --android` (sources derive from
+`scripts/make_icons.py` geometry).
+
 ## API summary
 
 | Method | Path | What |

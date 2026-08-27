@@ -1,0 +1,10 @@
+{
+  "appId": "io.github.thevoidwatches.ratchet",
+  "appName": "Ratchet",
+  "webDir": "www",
+  "server": {
+    "url": "http://desktop-2mmhpaf.tail77896d.ts.net:8484/ui/",
+    "cleartext": true,
+    "errorPath": "error.html"
+  }
+}

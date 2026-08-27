@@ -375,3 +375,10 @@ def test_header_wordmark_has_per_theme_art():
     assert 'src="logo-light.png"' in html and 'alt="Ratchet"' in html
     theme = client.get("/ui/theme.js").text
     assert "logo-dark.png" in theme and "logo-light.png" in theme
+
+
+def test_apk_route_404s_cleanly_until_a_build_is_deployed():
+    r = client.get("/apk")
+    assert r.status_code in (200, 404)
+    if r.status_code == 200:
+        assert r.headers["content-type"] == "application/vnd.android.package-archive"
