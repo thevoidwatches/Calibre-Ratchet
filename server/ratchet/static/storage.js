@@ -78,6 +78,37 @@ export function openExternal(url) {
   window.location.href = url;
 }
 
+/** The clipboard's text, or "" when it cannot be read.
+ *
+ *  In the shell this goes through the native plugin: navigator.clipboard
+ *  needs a secure context, and Ratchet is served over plain http on the
+ *  tailnet, so the web API is unavailable exactly where it would be most
+ *  useful. Desktop browsers on https still get the standard route.
+ */
+export async function readClipboard() {
+  if (inShell()) {
+    try { return (await plugins().RatchetNative.readClipboard()).text || ""; }
+    catch (e) { return ""; }
+  }
+  try { return await navigator.clipboard.readText(); }
+  catch (e) { return ""; }        // blocked, denied, or no clipboard API
+}
+
+/** Text shared into the app since it was last asked, or "". Collected once
+ *  and cleared natively, so a later return to the app cannot re-add it. */
+export async function consumeSharedText() {
+  if (!inShell()) return "";
+  try { return (await plugins().RatchetNative.consumeSharedText()).text || ""; }
+  catch (e) { return ""; }
+}
+
+/** When this build was installed, in epoch ms; 0 when unknown. */
+export async function installedAt() {
+  if (!inShell()) return 0;
+  try { return Number((await plugins().RatchetNative.appInfo()).installedAt) || 0; }
+  catch (e) { return 0; }
+}
+
 // ---- device copies of books (Ratchet/<library>/<filename>.epub) ----
 
 function devicePath(meta) {

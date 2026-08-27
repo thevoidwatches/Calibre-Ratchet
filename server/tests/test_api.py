@@ -714,3 +714,36 @@ def test_volume_popover_ships_with_the_page():
     assert 'type="range"' in html
     css = client.get("/ui/ui.css").text
     assert ".volpop" in css
+
+
+def test_apk_info_requires_a_token_and_404s_without_a_build():
+    """/apk itself is deliberately open (a phone browser cannot send the
+    header on a download); the metadata behind it is not."""
+    assert client.get("/apk-info").status_code == 401
+    # No APK is deployed in the test data dir.
+    assert client.get("/apk-info", headers=TOK).status_code == 404
+
+
+def test_apk_info_reports_when_the_build_was_made(tmp_path):
+    from ratchet.main import cfg
+    apk = cfg.data_dir / "ratchet.apk"
+    apk.write_bytes(b"not really an apk")
+    try:
+        body = client.get("/apk-info", headers=TOK).json()
+        assert body["size"] == 17
+        # Milliseconds, to compare against the device's install time.
+        assert body["built_at"] > 1_600_000_000_000
+    finally:
+        apk.unlink()
+
+
+def test_shared_and_clipboard_urls_go_through_one_add_path():
+    """The share sheet, the clipboard pre-fill and the button must all queue
+    the same way, or only the button's careful behaviour is tested."""
+    browse = client.get("/ui/browse.js").text
+    assert "export function queueAdd" in browse
+    assert "export function firstUrl" in browse
+    app = client.get("/ui/app.js").text
+    assert "queueAdd(shared)" in app
+    # A share into a running app never reloads the page.
+    assert "checkSharedStory" in app and "visibilitychange" in app
