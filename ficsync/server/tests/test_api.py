@@ -491,7 +491,9 @@ def test_add_book_downloads_verifies_and_records(monkeypatch):
     assert pushed["data"] == b"stub epub"
     assert pushed["filename"] == "Stub Story.epub"
 
-    # The snapshot written on add is what makes re-adding a 409.
+    # The snapshot written on add is what makes re-adding a 409 — but only
+    # once calibre confirms the book is still there.
+    monkeypatch.setattr(M, "_book_exists", lambda lib, bid: True)
     dup = client.post("/books/add", json={"url": url}, headers=TOK)
     assert dup.status_code == 409
     assert "4242" in dup.json()["detail"]
@@ -556,6 +558,8 @@ def test_unblocked_sites_are_unaffected_by_the_blocklist(monkeypatch):
                     headers=TOK)
     assert r.status_code == 502
     assert "fetch stage" in r.json()["detail"]
+
+
 def _stub_add(monkeypatch, url, *, cover):
     """Wire up a successful add whose fresh epub yields `cover`."""
     from ficsync import main as M
@@ -626,3 +630,42 @@ def test_image_options_reach_downloads_but_never_metadata_fetches():
     from ficsync.main import cfg as live_cfg
     assert sites.download_options(live_cfg) == ["-o", "include_images=true"]
     assert "include_images" not in " ".join(sites._fff_base_cmd(live_cfg))
+
+
+def test_duplicate_guard_heals_when_the_book_was_deleted_from_calibre(monkeypatch):
+    """Deleting a book in calibre doesn't tell ficsync, so a stale snapshot
+    must not make the story un-re-addable."""
+    url = "https://www.royalroad.com/fiction/999005"
+    M = _stub_add(monkeypatch, url, cover=None)
+    monkeypatch.setattr(M.calibre, "set_cover", lambda *a, **k: None)
+    assert client.post("/books/add", json={"url": url}, headers=TOK).status_code == 200
+
+    # Second attempt while calibre still has it: refused.
+    monkeypatch.setattr(M, "_book_exists", lambda lib, bid: True)
+    dup = client.post("/books/add", json={"url": url}, headers=TOK)
+    assert dup.status_code == 409
+
+    # Same attempt once the book is gone from calibre: the stale record is
+    # dropped and the add proceeds.
+    monkeypatch.setattr(M, "_book_exists", lambda lib, bid: False)
+    again = client.post("/books/add", json={"url": url}, headers=TOK)
+    assert again.status_code == 200, again.text
+    assert again.json()["book_id"] == 777
+
+
+def test_an_unreachable_calibre_is_not_mistaken_for_a_deleted_book(monkeypatch):
+    """_book_exists must raise, not answer False, when calibre can't be
+    reached — otherwise an outage silently duplicates books."""
+    from ficsync import main as M
+    monkeypatch.setattr(M.calibre, "books", lambda ids, lib: (_ for _ in ()).throw(
+        M.CalibreError("cannot reach calibre")))
+    with pytest.raises(M.CalibreError):
+        M._book_exists("Serials", 1)
+
+
+def test_book_exists_reads_calibres_null_entry_as_absent(monkeypatch):
+    from ficsync import main as M
+    monkeypatch.setattr(M.calibre, "books", lambda ids, lib: {"5": None})
+    assert M._book_exists("Serials", 5) is False
+    monkeypatch.setattr(M.calibre, "books", lambda ids, lib: {"5": {"title": "T"}})
+    assert M._book_exists("Serials", 5) is True
