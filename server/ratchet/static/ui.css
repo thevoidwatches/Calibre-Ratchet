@@ -110,6 +110,18 @@ details.fieldset > summary .fvalue { flex: 1 1 auto; min-width: 0;
                                      white-space: nowrap; text-align: right; }
 details.fieldset[open] > summary .fvalue { display: none; }
 
+/* Existing values to pick from, filtered by the box above them. Capped in
+   height so a long vocabulary scrolls inside its section instead of pushing
+   the rest of the page away. */
+.suggestbox { max-height: 40vh; overflow-y: auto; margin-top: 6px;
+              border: 1px solid var(--faint); border-radius: 6px;
+              padding: 6px; }
+.suggestbox[hidden] { display: none; }
+/* A family heading; the first one needs no gap above it. */
+.suggesthead { font-weight: bold; margin: 8px 0 2px; }
+.suggestbox > .suggesthead:first-child { margin-top: 0; }
+.chip.suggestion { cursor: pointer; }
+
 /* Site-authored description HTML: keep it inside its box whatever it holds. */
 .fieldset .desc { margin: 6px 0 2px; overflow-wrap: anywhere; }
 .fieldset .desc img { max-width: 100%; height: auto; }

@@ -1,7 +1,7 @@
 // Book detail: metadata chip editors + audit events.
 "use strict";
 import { $, state, api, apiJson, err, clearErr, show, isWritable } from "./core.js";
-import { seriesLabel } from "./format.js";
+import { groupSuggestions, seriesLabel, suggestValues } from "./format.js";
 import { loadCats, loadCatItems } from "./picker.js";
 import { play } from "./sfx.js";
 import { refreshActions, setUpdateAvailable } from "./actions.js";
@@ -145,6 +145,10 @@ async function saveField(field, value) {
   play("success");
 }
 
+// Enough to browse without becoming a wall on a phone; past this, filtering
+// is the faster route anyway and the box says so.
+const MAX_SUGGESTIONS = 60;
+
 // Which editors start open before this device has an opinion. Reading list is
 // the one changed most often after finishing a book; genre and tags are set
 // once and rarely revisited.
@@ -247,26 +251,84 @@ function renderMultiEditor(fs, col) {
       .catch(e => { err("save failed — " + e.message); play("error"); });
     c.append(x); fs.append(c);
   }
+  const addValue = v => {
+    if (!v || cur.includes(v)) return;
+    saveField(col.field, cur.concat([v]))
+      .catch(e => { err("save failed — " + e.message); play("error"); });
+  };
+
+  // One box that both filters and creates. The <datalist> this replaces was
+  // the obvious HTML for it, but Android WebViews barely implement it, and
+  // where they do it only appears once enough has been typed to narrow the
+  // list — no help when the question is "what genres do I already use?".
+  // Built from ordinary elements instead, so it behaves the same everywhere.
   const row = document.createElement("div"); row.className = "row";
   const inp = document.createElement("input"); inp.type = "text";
-  inp.placeholder = "add…";
-  const dlId = "dl-" + col.field.replace(/\W/g, "_");
-  inp.setAttribute("list", dlId);
-  const dl = document.createElement("datalist"); dl.id = dlId;
-  loadCats().then(() => loadCatItems(col.catName)).then(items => {
-    for (const n of items) {
-      const o = document.createElement("option"); o.value = n; dl.append(o);
-    }
-  });
+  inp.placeholder = "filter, or type a new one…";
   const add = document.createElement("button"); add.className = "small";
   add.textContent = "add";
-  add.onclick = () => {
-    const v = inp.value.trim();
-    if (v && !cur.includes(v))
-      saveField(col.field, cur.concat([v]))
-        .catch(e => { err("save failed — " + e.message); play("error"); });
+  add.onclick = () => addValue(inp.value.trim());
+  row.append(inp, add); fs.append(row);
+
+  const box = document.createElement("div");
+  box.className = "suggestbox";
+  box.hidden = true;
+  fs.append(box);
+
+  const chip = (value, label) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip suggestion";
+    b.textContent = label;
+    b.title = value;             // the full path, when the label is trimmed
+    // Keep the press from moving focus out of the filter box, which would
+    // hide this list before the click landed on it.
+    b.addEventListener("mousedown", e => e.preventDefault());
+    b.onclick = () => addValue(value);
+    return b;
   };
-  row.append(inp, dl, add); fs.append(row);
+
+  let vocabulary = [];
+  function renderSuggestions() {
+    const q = inp.value.trim().toLowerCase();
+    const matches = vocabulary.filter(v => v.toLowerCase().includes(q));
+    box.innerHTML = "";
+    // Only while the matching box has focus: several of these sections can be
+    // open at once, and a page of permanently expanded lists is unreadable.
+    box.hidden = !matches.length || document.activeElement !== inp;
+    if (box.hidden) return;
+    // Unfiltered, the list is grouped by top level so a long vocabulary reads
+    // as a few headed families. Once filtering, matches are shown in full:
+    // the whole point is then seeing where each one sits.
+    if (!q) {
+      const {loose, groups} = groupSuggestions(matches.slice(0, MAX_SUGGESTIONS));
+      for (const it of loose) box.append(chip(it.value, it.label));
+      for (const g of groups) {
+        const head = document.createElement("div");
+        head.className = "suggesthead small muted";
+        head.textContent = g.label;
+        box.append(head);
+        for (const it of g.items) box.append(chip(it.value, it.label));
+      }
+    } else {
+      for (const v of matches.slice(0, MAX_SUGGESTIONS)) box.append(chip(v, v));
+    }
+    if (matches.length > MAX_SUGGESTIONS) {
+      const more = document.createElement("div");
+      more.className = "small muted";
+      more.textContent = "+" + (matches.length - MAX_SUGGESTIONS) +
+                         " more — keep typing to narrow";
+      box.append(more);
+    }
+  }
+
+  inp.addEventListener("input", renderSuggestions);
+  inp.addEventListener("focus", renderSuggestions);
+  inp.addEventListener("blur", () => { box.hidden = true; });
+  loadCats().then(() => loadCatItems(col.catName)).then(items => {
+    vocabulary = suggestValues(items, cur);
+    renderSuggestions();     // stays hidden unless this box already has focus
+  }).catch(() => { /* no vocabulary: the box still adds new values */ });
 }
 
 function renderSingleEditor(fs, col) {
