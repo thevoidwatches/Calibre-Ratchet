@@ -669,3 +669,30 @@ def test_book_exists_reads_calibres_null_entry_as_absent(monkeypatch):
     assert M._book_exists("Serials", 5) is False
     monkeypatch.setattr(M.calibre, "books", lambda ids, lib: {"5": {"title": "T"}})
     assert M._book_exists("Serials", 5) is True
+
+
+def test_every_declared_sound_has_a_file_that_ships():
+    """A misspelt sound name fails silently at runtime — the UI simply plays
+    nothing — so the names in sfx.js are checked against what is on disk."""
+    js = client.get("/ui/sfx.js").text
+    taps = re.findall(r'"([^"]+)"',
+                      re.search(r"const TAPS = \[(.*?)\]", js, re.S).group(1))
+    names = re.findall(r'"([^"]+)"',
+                       re.search(r"const NAMES = \[(.*?)\]", js, re.S).group(1))
+    exts = re.findall(r'"([^"]+)"',
+                      re.search(r"const EXTS = \[(.*?)\]", js, re.S).group(1))
+    sfx_dir = Path(__file__).resolve().parents[1] / "ratchet" / "static" / "sfx"
+    assert len(taps) >= 2, "the random tap needs something to choose between"
+    for name in set(names + taps):
+        assert any((sfx_dir / f"{name}.{ext}").is_file() for ext in exts), name
+
+
+def test_navigation_sounds_are_wired_through_the_view_event():
+    """core.js announces view changes and sfx.js listens, the same
+    one-directional arrangement as the 401 sound; an import the other way
+    would make the two modules circular."""
+    core = client.get("/ui/core.js").text
+    sfx = client.get("/ui/sfx.js").text
+    assert "VIEW_CHANGED_EVENT" in core and "dispatchEvent" in core
+    assert "VIEW_CHANGED_EVENT" in sfx and '"page-shift"' in sfx
+    assert not re.search(r"""^\s*import[^\n]*["']\./sfx\.js["']""", core, re.M)

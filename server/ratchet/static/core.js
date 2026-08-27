@@ -73,6 +73,10 @@ export const UNAUTHORIZED_EVENT = "ratchet:unauthorized";
 // An event keeps that dependency one-directional instead of circular.
 export const PICK_FILTER_EVENT = "ratchet:pick-filter";
 
+// Fired by show() whenever the visible view actually changes, so sounds can
+// follow navigation without core.js knowing anything about audio.
+export const VIEW_CHANGED_EVENT = "ratchet:view-changed";
+
 export function err(msg) { const b = $("errBox"); b.textContent = msg; b.hidden = false; }
 export function clearErr() { $("errBox").hidden = true; }
 
@@ -97,10 +101,21 @@ export const apiJson = async (path, opts) => (await api(path, opts)).json();
 
 const VIEWS = {token: "vToken", browse: "vBrowse", pickcol: "vPickCol",
                pickval: "vPickVal", detail: "vDetail"};
+let currentView = null;
 export function show(name, push = true) {
   for (const v of Object.values(VIEWS)) $(v).hidden = true;
   $(VIEWS[name]).hidden = false;
   window.scrollTo(0, 0);
+  // Announced rather than sounded here, for the same reason as the 401 above:
+  // sfx.js imports this module, so it listens instead of being called.
+  // Skipped for the very first view, which is the app opening rather than a
+  // move between pages.
+  if (name !== currentView) {
+    const from = currentView;
+    currentView = name;
+    if (from !== null)
+      window.dispatchEvent(new CustomEvent(VIEW_CHANGED_EVENT, {detail: {view: name}}));
+  }
   // Each view change becomes a history entry so the system back button (vital
   // once this runs inside an Android shell) walks views instead of closing
   // the app. The first recorded view becomes the root entry.
