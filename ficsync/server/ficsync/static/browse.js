@@ -2,8 +2,9 @@
 "use strict";
 import { $, state, apiJson, err, clearErr, PICK_FILTER_EVENT } from "./core.js";
 import { seriesLabel } from "./format.js";
-import { buildQuery, describeFilters, isPresetAtom } from "./query.js";
+import { buildQuery, describeFilters, isDownloadedAtom, isPresetAtom } from "./query.js";
 import { openBook } from "./detail.js";
+import { downloadedIds } from "./catalog.js";
 
 const COLLAPSE_KEY = "ficsync_filters_collapsed";
 
@@ -38,8 +39,11 @@ function presetMap() {
   return Object.fromEntries((state.savedFilters || []).map(f => [f.name, f.groups]));
 }
 
-export function fullQuery() {
-  return buildQuery(state.filterGroups, $("q").value, presetMap());
+/** Async because a Downloaded atom (here or inside a referenced preset)
+ *  needs the device catalog's ids; outside the shell that is an instant []. */
+export async function fullQuery() {
+  return buildQuery(state.filterGroups, $("q").value,
+                    {presets: presetMap(), downloadedIds: await downloadedIds()});
 }
 
 /** Groups render as boxes of ORed chips, with "and" between the boxes. Each
@@ -65,7 +69,8 @@ export function renderFilterChips() {
       const preset = isPresetAtom(t);
       c.className = "chip" + (t.exclude ? " excl" : "") + (preset ? " preset" : "");
       // A preset shows by name — displaying its expansion would defeat the alias.
-      c.append(preset ? t.preset : t.field + ": " + t.value);
+      c.append(preset ? t.preset :
+               isDownloadedAtom(t) ? "Downloaded" : t.field + ": " + t.value);
       if (preset && !(state.savedFilters || []).some(f => f.name === t.preset)) {
         c.classList.add("broken");
         c.title = "this saved set no longer exists";
@@ -97,7 +102,7 @@ export function renderFilterChips() {
 
 export async function search(more = false) {
   clearErr();
-  const q = fullQuery();
+  const q = await fullQuery();
   if (!more) { state.offset = 0; $("results").innerHTML = ""; }
   try {
     const data = await apiJson("/books?q=" + encodeURIComponent(q) +

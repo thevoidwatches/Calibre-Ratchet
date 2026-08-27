@@ -9,5 +9,12 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(RatchetNativePlugin.class);
         super.onCreate(savedInstanceState);
+        // For the bundled offline page, which Capacitor's injected runtime
+        // does not reach (see OfflineBridge). Attached to the WebView itself,
+        // so it exists on every page regardless of origin.
+        if (getBridge() != null) {
+            getBridge().getWebView().addJavascriptInterface(
+                    new OfflineBridge(this), "RatchetOffline");
+        }
     }
 }

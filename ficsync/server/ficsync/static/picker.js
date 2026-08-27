@@ -19,9 +19,13 @@
 import { $, state, apiJson, err, clearErr, show, PICK_FILTER_EVENT } from "./core.js";
 import { renderFilterChips, search } from "./browse.js";
 import { wouldCycle } from "./query.js";
+import { inShell } from "./storage.js";
 
 // Pseudo-column in the picker listing the saved sets themselves.
 const PRESET_COL = "Saved sets";
+// Pseudo-column for the device-copy filter (shell only — a plain browser has
+// no device catalog to check against).
+const DOWNLOADED_COL = "Downloaded";
 
 // Columns where "." in a value is punctuation, not hierarchy (author names
 // like "R.A. Scott", series with dotted titles).
@@ -121,6 +125,12 @@ async function openColumnPicker() {
     li.onclick = () => pickValue(name);
     ul.append(li);
   }
+  if (inShell()) {
+    const li = document.createElement("li");
+    li.textContent = DOWNLOADED_COL;
+    li.onclick = () => pickDownloaded();
+    ul.append(li);
+  }
   if ((state.savedFilters || []).length) {
     const li = document.createElement("li");
     li.textContent = PRESET_COL;
@@ -151,6 +161,27 @@ async function pickValue(colName) {
   show("pickval");
   const items = await loadCatItems(colName);
   renderValTree(items, isHierarchical(colName));
+}
+
+/** Downloaded is device knowledge, not a calibre column: the query builder
+ *  expands the atom into an id list from the offline catalog. One value,
+ *  offered through the normal value screen so the Is/Not tabs apply. */
+function pickDownloaded() {
+  state.pickingCol = DOWNLOADED_COL;
+  $("pickValTitle").textContent = DOWNLOADED_COL;
+  $("freeValue").value = "";
+  setMode(false);
+  const box = $("valTree");
+  box.innerHTML = "";
+  const ul = document.createElement("ul"); ul.className = "tree";
+  const li = document.createElement("li");
+  const a = document.createElement("span");
+  a.className = "node chip";
+  a.textContent = "on this device";
+  a.onclick = () => addAtom({downloaded: true, exclude: currentMode()});
+  li.append(a); ul.append(li);
+  box.append(ul);
+  show("pickval");
 }
 
 /** Choose a saved set to drop in as a single atom. */

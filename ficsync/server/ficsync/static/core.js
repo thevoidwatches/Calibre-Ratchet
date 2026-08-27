@@ -56,6 +56,9 @@ export function setLibrary(id) {
 // selected one. Static /ui assets and /libraries itself are exempt.
 function withLibrary(path) {
   if (state.library === null || path.startsWith("/libraries")) return path;
+  // A caller that pinned its own library= (the catalog refresher walking
+  // other libraries' books) must not have the current one appended too.
+  if (path.includes("library=")) return path;
   return path + (path.includes("?") ? "&" : "?") +
          "library=" + encodeURIComponent(state.library);
 }

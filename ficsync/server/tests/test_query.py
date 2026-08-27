@@ -118,3 +118,36 @@ def test_cycle_detection(q):
     assert q["cycle_direct"] is True        # a set cannot reference itself
     assert q["cycle_indirect"] is True      # A -> B -> A
     assert q["cycle_none"] is False
+
+
+# --- the Downloaded pseudo-filter -------------------------------------------
+
+def test_downloaded_expands_to_an_id_list(q):
+    assert q["downloaded_ids"] == "((id:5 or id:97))"
+
+
+def test_downloaded_with_nothing_on_device_matches_no_book(q):
+    # Ids start at 1, so id:"<1" is the empty set — and the excluded form is
+    # then every book, which is the correct reading of "not Downloaded".
+    assert q["downloaded_empty"] == '(id:"<1")'
+    assert q["downloaded_no_ctx"] == '(id:"<1")'
+    assert q["downloaded_excluded_empty"] == '(not id:"<1")'
+
+
+def test_downloaded_can_be_negated(q):
+    assert q["downloaded_excluded"] == "(not (id:5))"
+
+
+def test_downloaded_ors_with_a_plain_term(q):
+    assert q["downloaded_or_term"] == \
+        '(((id:1 or id:2)) or (tags:"~^x(\.|$)"))'
+
+
+def test_downloaded_works_inside_a_preset(q):
+    # One paren layer each from the atom, the preset's group, and the group
+    # holding the preset reference.
+    assert q["downloaded_in_preset"] == "(((id:7)))"
+
+
+def test_downloaded_reads_as_its_name(q):
+    assert q["describe_downloaded"] == "(not Downloaded or tags: x)"

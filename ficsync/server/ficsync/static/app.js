@@ -9,6 +9,7 @@ import { initTheme } from "./theme.js";
 import { initFilters, loadSavedFilters } from "./filters.js";
 import { openBook } from "./detail.js";
 import { ensureStorage, initStorage, inShell, openExternal } from "./storage.js";
+import { refreshCatalog } from "./catalog.js";
 
 // On-screen back/cancel buttons pop history rather than jumping, so they and
 // the system back button always agree about where "back" goes.
@@ -157,6 +158,7 @@ async function boot({announce = false} = {}) {
   if (announce) play("success");   // the token was accepted
   await loadLibraries();
   ensureStorage();          // shell only: Ratchet/<library>/ folders on device
+  refreshCatalog().catch(() => {});   // shell only: offline catalog upkeep
   show("browse");
   renderFilterChips();
   renderFilterBar();

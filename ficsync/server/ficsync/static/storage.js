@@ -12,6 +12,7 @@
 "use strict";
 import { $, api, state } from "./core.js";
 import { epubFilename } from "./format.js";
+import { removeBook, upsertBook } from "./catalog.js";
 
 const ROOT = "Ratchet";
 
@@ -114,11 +115,15 @@ export async function saveBookToDevice(meta) {
     data: await blobToBase64(blob),
     recursive: true,
   });
+  // The offline catalog mirrors what is on the device; it must never be the
+  // reason a download counts as failed.
+  try { await upsertBook(meta); } catch (e) { /* best-effort */ }
 }
 
 export async function deleteBookFromDevice(meta) {
   await plugins().Filesystem.deleteFile(
     {path: devicePath(meta), directory: "EXTERNAL_STORAGE"});
+  try { await removeBook(); } catch (e) { /* best-effort */ }
 }
 
 /** True when the device copy is missing or older than calibre's copy. */

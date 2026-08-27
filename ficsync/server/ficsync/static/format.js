@@ -23,6 +23,32 @@ export function seriesLabel(meta) {
 const UNSAFE_FILENAME = /[<>:"/\\|?*\u0000-\u001f]/g;
 const MAX_STEM = 180;   // leaves room for ".epub" under a 255-byte limit
 
+/** One offline-catalog record: the metadata the shell's bundled offline page
+ *  shows and filters on when the server is unreachable. Pure so node tests
+ *  can pin the shape the two sides agree on. */
+export function catalogEntry(meta, id, library, genreField) {
+  const m = meta || {};
+  const um = m.user_metadata || {};
+  const listOf = f => {
+    const v = (um[f] || {})["#value#"];
+    return Array.isArray(v) ? v : v ? [v] : [];
+  };
+  const rl = (um["#readinglist"] || {})["#value#"];
+  return {
+    library,
+    id,
+    file: epubFilename(m),
+    title: m.title || "",
+    series: m.series || null,
+    series_index: m.series_index ?? null,
+    authors: m.authors || [],
+    genres: listOf(genreField),
+    tags: m.tags || [],
+    readinglist: rl == null ? "" : String(rl),
+    last_modified: m.last_modified || "",
+  };
+}
+
 /** "The Abyss 2. The Edge of the Abyss - Emily Skrutskie.epub"
  *  Without a series: "Blue Core - Ivan Kal.epub". */
 export function epubFilename(meta) {
