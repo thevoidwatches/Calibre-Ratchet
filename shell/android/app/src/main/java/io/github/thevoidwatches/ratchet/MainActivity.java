@@ -32,6 +32,10 @@ public class MainActivity extends BridgeActivity {
         if (getBridge() != null) {
             getBridge().getWebView().addJavascriptInterface(
                     new OfflineBridge(this), "RatchetOffline");
+            // Installed after the bridge has set its own: ours only corrects
+            // prompt(), inheriting the rest (file chooser, permissions).
+            getBridge().getWebView().setWebChromeClient(
+                    new RatchetChromeClient(getBridge()));
         }
     }
 
