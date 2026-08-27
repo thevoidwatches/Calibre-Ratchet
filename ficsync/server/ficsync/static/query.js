@@ -3,11 +3,17 @@
 // The model is an AND of ORs over ATOMS: a filter is a list of GROUPS, the
 // atoms inside a group are ORed, and the groups are ANDed.
 //
-// An atom is either a term ({field, value, ...}) or a reference to a saved
-// preset ({preset: "name"}). Because a preset expands to a parenthesised
-// expression, referencing one inside a group is what allows
-// "PresetA or PresetB" — the OR of two whole expressions — without adding a
-// nesting level to the editor. "PresetA and genre:X" is simply two groups.
+// An atom is a term ({field, value, ...}), a reference to a saved preset
+// ({preset: "name"}), or the Downloaded pseudo-filter ({downloaded: true}).
+// Because a preset expands to a parenthesised expression, referencing one
+// inside a group is what allows "PresetA or PresetB" — the OR of two whole
+// expressions — without adding a nesting level to the editor. "PresetA and
+// genre:X" is simply two groups.
+//
+// Downloaded is device knowledge, not a calibre column: the caller supplies
+// the ids of the books with a device copy (from the offline catalog) via the
+// context, and the atom expands to an "(id:A or id:B ...)" query so paging,
+// sorting and counts all stay server-side.
 //
 // Every term is parenthesised. calibre gives `not` tighter binding than `or`
 // anyway, but wrapping means the emitted query never depends on that.
@@ -32,28 +38,39 @@ export function termToQuery(term) {
 }
 
 export const isPresetAtom = a => !!(a && typeof a.preset === "string");
+export const isDownloadedAtom = a => !!(a && a.downloaded === true);
 
 const MAX_PRESET_DEPTH = 20;
 
-/** Expand one atom. `presets` maps name -> groups; `seen` is the chain of
- *  preset names currently being expanded, so a preset that refers back to
- *  itself (directly or through others) is dropped instead of recursing
- *  forever. */
-function atomToQuery(atom, presets, seen) {
+/** Expand one atom. `ctx` carries {presets, downloadedIds}: presets maps
+ *  name -> groups, downloadedIds lists the current library's on-device book
+ *  ids. `seen` is the chain of preset names currently being expanded, so a
+ *  preset that refers back to itself (directly or through others) is dropped
+ *  instead of recursing forever. */
+function atomToQuery(atom, ctx, seen) {
+  if (isDownloadedAtom(atom)) {
+    // Book ids start at 1, so with nothing on the device this matches no
+    // book — and an excluded atom then correctly matches every book.
+    const ids = ctx.downloadedIds || [];
+    const part = ids.length
+      ? "(" + ids.map(i => "id:" + i).join(" or ") + ")"
+      : 'id:"<1"';
+    return atom.exclude ? "not " + part : part;
+  }
   if (!isPresetAtom(atom)) return termToQuery(atom);
   const name = atom.preset;
   if (seen.includes(name) || seen.length >= MAX_PRESET_DEPTH) return "";
-  const groups = (presets || {})[name];
+  const groups = (ctx.presets || {})[name];
   if (!groups) return "";          // renamed or deleted since it was referenced
-  const inner = buildQuery(groups, "", presets, seen.concat(name));
+  const inner = buildQuery(groups, "", ctx, seen.concat(name));
   if (!inner) return "";
   return atom.exclude ? "not (" + inner + ")" : inner;
 }
 
-export function groupToQuery(group, presets = {}, seen = []) {
+export function groupToQuery(group, ctx = {}, seen = []) {
   const atoms = (group && group.terms) || [];
   const parts = atoms
-    .map(a => atomToQuery(a, presets, seen))
+    .map(a => atomToQuery(a, ctx, seen))
     .filter(Boolean)
     .map(q => "(" + q + ")");
   if (!parts.length) return "";
@@ -61,10 +78,10 @@ export function groupToQuery(group, presets = {}, seen = []) {
 }
 
 /** Groups ANDed together, with any free-text calibre search appended as one
- *  more conjunct. */
-export function buildQuery(groups, freeText = "", presets = {}, seen = []) {
+ *  more conjunct. `ctx` is {presets, downloadedIds}, both optional. */
+export function buildQuery(groups, freeText = "", ctx = {}, seen = []) {
   const parts = (groups || [])
-    .map(g => groupToQuery(g, presets, seen))
+    .map(g => groupToQuery(g, ctx, seen))
     .filter(Boolean);
   const free = (freeText || "").trim();
   if (free) parts.push(free);
@@ -90,7 +107,8 @@ export function wouldCycle(presets, targetName, candidateName) {
 export function describeFilters(groups) {
   return (groups || []).map(g => {
     const atoms = (g.terms || []).map(a => (a.exclude ? "not " : "") +
-      (isPresetAtom(a) ? "[" + a.preset + "]" : a.field + ": " + a.value));
+      (isPresetAtom(a) ? "[" + a.preset + "]" :
+       isDownloadedAtom(a) ? "Downloaded" : a.field + ": " + a.value));
     return atoms.length > 1 ? "(" + atoms.join(" or ") + ")" : atoms[0] || "";
   }).filter(Boolean).join(" and ");
 }

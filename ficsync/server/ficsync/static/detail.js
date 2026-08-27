@@ -5,6 +5,7 @@ import { seriesLabel } from "./format.js";
 import { loadCats, loadCatItems } from "./picker.js";
 import { play } from "./sfx.js";
 import { refreshActions, setUpdateAvailable } from "./actions.js";
+import { refreshOpenBook } from "./catalog.js";
 
 // Category display name for a field ("#genre" -> "Genre"), so the chip
 // editors reuse the vocabulary the filter picker already loads.
@@ -115,6 +116,8 @@ async function saveField(field, value) {
   // A tag added here is new vocabulary; drop the cache so it autocompletes next time.
   state.catItems = {};
   renderEditors(data.calibre || {});
+  // Shell only: keep the offline catalog's copy of this book current too.
+  refreshOpenBook(data.calibre || {}).catch(() => {});
   play("success");
 }
 

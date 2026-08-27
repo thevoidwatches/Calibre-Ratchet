@@ -1,0 +1,48 @@
+<!doctype html>
+<!-- Template for www/error.html — run `node build-error-page.mjs` after
+     editing this, www/offline.js, or www/offline.css.
+
+     Everything must be INLINED: when capacitor.config has an external
+     server.url, Capacitor's WebViewLocalServer serves only the exact
+     errorPath URL from the bundle; requests for sibling files (offline.js,
+     offline.css) are proxied to the very server that just failed to answer.
+     (WebViewLocalServer.shouldInterceptRequest routes local-vs-proxy on
+     isErrorUrl, an exact-URL match.) -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ratchet</title>
+<style>
+@@CSS@@
+</style>
+</head>
+<body>
+<header>
+  <h1>Ratchet</h1>
+  <span class="tag">offline</span>
+  <button id="btnRetry">Retry</button>
+</header>
+<main id="main" class="plain">
+  <p id="statusText">The server didn't answer. Check that the PC is on, the
+  service is running (run.bat), and Tailscale is connected on this device.</p>
+  <section id="library" hidden>
+    <div class="row">
+      <input id="q" type="search" placeholder="search title, author, series">
+      <select id="sortSel">
+        <option value="recent">Recent</option>
+        <option value="title">Title</option>
+        <option value="author">Author</option>
+        <option value="series">Series</option>
+      </select>
+    </div>
+    <div id="chips"></div>
+    <div id="count"></div>
+    <ul id="list"></ul>
+  </section>
+</main>
+<script type="module">
+@@JS@@
+</script>
+</body>
+</html>

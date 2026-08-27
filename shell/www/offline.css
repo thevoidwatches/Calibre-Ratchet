@@ -1,0 +1,71 @@
+/* The served UI's two-tone e-ink palette, trimmed to what the offline page
+   uses. No manual theme toggle here (the served UI's choice lives in another
+   origin's localStorage), so dark mode follows the system setting. */
+:root {
+  --bg: #fff;
+  --fg: #000;
+  --muted: #444;
+  --stripe: rgb(200, 200, 200);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #000;
+    --fg: #fff;
+    --muted: #bbb;
+    --stripe: rgb(50, 50, 50);
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+html { font-family: system-ui, sans-serif; font-size: 17px; }
+body { margin: 0; background: var(--bg); color: var(--fg); }
+
+header { display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+         border-bottom: 2px solid var(--fg); }
+header h1 { font-size: 1.2rem; margin: 0; }
+header .tag { font-style: italic; color: var(--muted); }
+header button { margin-left: auto; }
+
+main { padding: 10px 12px 40px; max-width: 720px; margin: 0 auto; }
+/* Message-only state (no offline catalog to show): centred on the screen,
+   like the original error page. Dropped once the library renders. */
+main.plain { display: flex; align-items: center; justify-content: center;
+             text-align: center; min-height: calc(100vh - 140px);
+             max-width: 26em; }
+
+button { font: inherit; background: var(--bg); color: var(--fg);
+         border: 2px solid var(--fg); border-radius: 6px; padding: 8px 14px;
+         min-height: 44px; }
+
+input, select { font: inherit; border: 2px solid var(--fg); border-radius: 6px;
+                padding: 8px; min-height: 44px; background: var(--bg);
+                color: var(--fg); }
+
+.row { display: flex; gap: 8px; margin: 8px 0; flex-wrap: wrap;
+       align-items: center; }
+.row input[type=search] { flex: 1; min-width: 120px; }
+
+#statusText { color: var(--muted); }
+#count { color: var(--muted); font-size: 0.9rem; margin: 4px 0; }
+
+.chiprow { margin: 6px 0; }
+.chiplabel { font-weight: bold; margin-right: 6px; }
+.chip { display: inline-block; border: 2px solid var(--fg); border-radius: 14px;
+        padding: 4px 10px; margin: 2px; min-height: 34px; font-size: 0.9rem; }
+.chip.on { background: var(--fg); color: var(--bg); }
+
+#list { list-style: none; margin: 8px 0; padding: 0; }
+#list li { padding: 8px 6px; cursor: pointer; }
+#list li:nth-child(even) { background: var(--stripe); }
+#list .titlerow { display: flex; justify-content: space-between; gap: 10px; }
+#list .titlerow .t { font-weight: bold; min-width: 0; overflow-wrap: anywhere; }
+#list .titlerow .ser { flex: 0 0 auto; font-style: italic; color: var(--muted); }
+#list .titlerow .ser:empty { display: none; }
+#list .authors { color: var(--muted); }
+#list .meta { display: flex; justify-content: space-between; gap: 10px;
+              font-style: italic; font-size: 0.9rem; color: var(--muted); }
+#list .meta .genres { text-align: left; }
+#list .meta .tags { text-align: right; }
+#list .meta span:empty { display: none; }

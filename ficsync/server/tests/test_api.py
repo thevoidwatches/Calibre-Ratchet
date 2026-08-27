@@ -283,6 +283,16 @@ def test_unknown_term_keys_are_not_stored():
     client.delete("/filters/Clean", headers=TOK)
 
 
+def test_downloaded_atom_saves_normalised():
+    """The device-copy pseudo-filter stores as its own atom kind — no field or
+    value — so a saved set containing it round-trips."""
+    r = client.put("/filters/OnDevice", json={"groups": [
+        {"terms": [{"downloaded": True, "exclude": True, "junk": 1}]}]}, headers=TOK)
+    assert r.status_code == 200, r.text
+    assert r.json()["groups"] == [{"terms": [{"downloaded": True, "exclude": True}]}]
+    client.delete("/filters/OnDevice", headers=TOK)
+
+
 def test_filter_name_length_is_bounded():
     r = client.put("/filters/" + "x" * 200,
                    json={"groups": [{"terms": [{"field": "tags", "value": "x"}]}]},

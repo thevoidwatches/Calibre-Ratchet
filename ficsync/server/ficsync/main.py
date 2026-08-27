@@ -549,7 +549,13 @@ def _clean_filter_groups(groups) -> list[dict]:
         for t in terms_in:
             if not isinstance(t, dict):
                 raise HTTPException(400, "each term must be an object")
-            # An atom is either a reference to another saved set, or a term.
+            # An atom is a reference to another saved set, the device-side
+            # "Downloaded" pseudo-filter (expanded by the UI from its device
+            # catalog), or a term.
+            if t.get("downloaded") is True:
+                terms.append({"downloaded": True, "exclude": bool(t.get("exclude"))})
+                total += 1
+                continue
             preset = t.get("preset")
             if preset is not None:
                 if not isinstance(preset, str) or not preset.strip():

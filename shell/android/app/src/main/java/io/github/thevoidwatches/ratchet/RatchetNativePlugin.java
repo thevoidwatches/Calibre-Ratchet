@@ -47,7 +47,32 @@ public class RatchetNativePlugin extends Plugin {
      *  shape: on Boox devices the built-in reader wins generic epub VIEW
      *  intents even when the user has picked Moon+ elsewhere. Targeting the
      *  package sidesteps resolution entirely.
+     *
+     *  Shared with OfflineBridge, which opens books from the bundled offline
+     *  page where the Capacitor plugin runtime is unavailable.
      */
+    static String openWithPackages(android.app.Activity activity, java.io.File file,
+                                   String contentType, java.util.List<String> preferred) {
+        Uri uri = FileProvider.getUriForFile(activity,
+                activity.getPackageName() + ".fileprovider", file);
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.setDataAndType(uri, contentType);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                | Intent.FLAG_ACTIVITY_NEW_TASK);
+        for (String pkg : preferred) {
+            try {
+                intent.setPackage(pkg);
+                activity.startActivity(intent);
+                return pkg;
+            } catch (ActivityNotFoundException e) {
+                // not installed (or not visible) — try the next preference
+            }
+        }
+        intent.setPackage(null);   // give up targeting; let Android resolve
+        activity.startActivity(intent);   // ActivityNotFoundException if none
+        return "default";
+    }
+
     @PluginMethod
     public void openFile(PluginCall call) {
         String path = call.getString("path");
@@ -56,34 +81,21 @@ public class RatchetNativePlugin extends Plugin {
 
         java.io.File file = new java.io.File(path);
         if (!file.exists()) { call.reject("file not found: " + path); return; }
-        Uri uri = FileProvider.getUriForFile(getContext(),
-                getContext().getPackageName() + ".fileprovider", file);
 
-        Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setDataAndType(uri, contentType);
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
-                | Intent.FLAG_ACTIVITY_NEW_TASK);
-
-        JSArray preferred = call.getArray("packages", new JSArray());
-        for (int i = 0; i < preferred.length(); i++) {
+        java.util.List<String> preferred = new java.util.ArrayList<>();
+        JSArray packages = call.getArray("packages", new JSArray());
+        for (int i = 0; i < packages.length(); i++) {
             try {
-                intent.setPackage(preferred.getString(i));
-                getActivity().startActivity(intent);
-                JSObject ret = new JSObject();
-                ret.put("openedWith", preferred.getString(i));
-                call.resolve(ret);
-                return;
-            } catch (ActivityNotFoundException e) {
-                // not installed (or not visible) — try the next preference
+                preferred.add(packages.getString(i));
             } catch (org.json.JSONException e) {
                 break;
             }
         }
-        intent.setPackage(null);   // give up targeting; let Android resolve
         try {
-            getActivity().startActivity(intent);
+            String openedWith = openWithPackages(getActivity(), file,
+                    contentType, preferred);
             JSObject ret = new JSObject();
-            ret.put("openedWith", "default");
+            ret.put("openedWith", openedWith);
             call.resolve(ret);
         } catch (ActivityNotFoundException e) {
             call.reject("no app can open " + contentType);
