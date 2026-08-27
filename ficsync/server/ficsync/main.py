@@ -27,8 +27,9 @@ from .chapterkeys import site_of
 from .config import Config, load_config
 from .db import Sidecar
 from .fff import FFFError, update_epub
+from .sites import run_fff
 from .safety import decide, verify_post_update
-from .sites import RemoteStory, SiteFetchError, fetch_remote
+from .sites import RemoteStory, SiteFetchError, fetch_remote, run_fff
 
 CONFIG_PATH = os.environ.get("FICSYNC_CONFIG", "config.toml")
 
@@ -124,10 +125,15 @@ def _story_url(library_id: str, book_id: int, epub_path: str) -> str:
         url = None
     if url:
         return url
+    # Last resort, matching the FFF plugin's behaviour: a recognisable story
+    # link inside the book's own HTML (AO3-generated epubs carry one).
+    url = epub_mod.find_story_url_in_html(epub_path)
+    if url:
+        return url
     raise HTTPException(
-        422, "no story URL: epub has no <dc:source> and calibre identifiers "
-             f"have no '{cfg.calibre.identifier_key}' entry — not a "
-             "FanFicFare-managed book?")
+        422, "no story URL: epub has no <dc:source>, calibre identifiers "
+             f"have no '{cfg.calibre.identifier_key}' entry, and no site link "
+             "was found inside the book")
 
 
 def _local_chapters(epub_path: str):
@@ -292,6 +298,120 @@ def check(book_id: int, library: str | None = LIB_Q) -> dict:
                                               "new": len(decision.diff.new),
                                               "missing": len(decision.diff.missing)})
     return payload
+
+
+# story-state means downloading and reading the epub, and the UI asks on
+# every book-detail open — cache per (library, book) keyed on calibre's
+# last_modified, so only a changed book pays for a re-read. In-memory only:
+# the process restarting just repopulates it.
+_story_state_cache: dict[tuple[str, int], tuple[str, dict]] = {}
+_story_state_lock = threading.Lock()
+
+
+@app.get("/books/{book_id}/story-state", dependencies=AUTH)
+def story_state(book_id: int, library: str | None = LIB_Q) -> dict:
+    """How this book relates to FanFicFare, driving which actions the UI
+    offers: fff_managed -> Check/Update; convertible (a story URL is
+    discoverable but the epub is not FFF-made) -> Convert; neither -> none."""
+    lib = _lib(library)
+    try:
+        meta = calibre.book(book_id, lib)
+    except CalibreError as e:
+        raise HTTPException(404, str(e))
+    stamp = str(meta.get("last_modified") or "")
+    with _story_state_lock:
+        cached = _story_state_cache.get((lib, book_id))
+        if cached and cached[0] == stamp:
+            return cached[1]
+
+    epub_path, tmp = _fetch_epub_to_temp(lib, book_id)
+    with tmp:
+        chapters = epub_mod.extract_chapters(epub_path)
+        url = (epub_mod.read_story_url(epub_path)
+               or calibre.story_url_from_identifiers(meta, cfg.calibre.identifier_key)
+               or epub_mod.find_story_url_in_html(epub_path))
+    managed = bool(chapters)
+    result = {
+        "story_url": url,
+        "fff_managed": managed,
+        "chapter_count": len(chapters),
+        "convertible": bool(url) and not managed,
+    }
+    with _story_state_lock:
+        _story_state_cache[(lib, book_id)] = (stamp, result)
+    return result
+
+
+@app.post("/books/{book_id}/convert", dependencies=AUTH)
+def convert(book_id: int, library: str | None = LIB_Q) -> dict:
+    """Turn a site-sourced but non-FFF epub (e.g. AO3's own download) into a
+    FanFicFare-managed one by fetching a FRESH copy from the site.
+
+    This is the one deliberate exception to the ratchet invariant: the old
+    epub has no chapter identities, so a diff against it is impossible — if
+    the author deleted chapters since the original download, the fresh copy
+    silently lacks them. The old file is backed up first, and the post-verify
+    still requires the fresh epub to match the site's chapter list exactly.
+    After conversion the book is a normal FFF epub and fully guarded.
+    """
+    lib = _lib(library)
+    lock = _lock_for(lib, book_id)
+    if not lock.acquire(blocking=False):
+        raise HTTPException(409, "an update for this book is already running")
+    try:
+        epub_path, tmp = _fetch_epub_to_temp(lib, book_id)
+        with tmp:
+            if epub_mod.extract_chapters(epub_path):
+                raise HTTPException(409, "already FanFicFare-managed — use "
+                                         "/update, which can protect chapters")
+            url = _story_url(lib, book_id, epub_path)
+            try:
+                remote = fetch_remote(url, cfg)
+            except SiteFetchError as e:
+                sidecar.log_event(lib, book_id, "convert_error",
+                                  {"url": url, "error": str(e)})
+                raise HTTPException(502, str(e))
+
+            backup_path = _backup(lib, book_id, epub_path)
+            fresh_path = str(Path(tmp.name) / "fresh.epub")
+            try:
+                proc = run_fff(["-o", f"output_filename={fresh_path}", url], cfg)
+            except Exception as e:  # timeout, missing binary, --force guard
+                raise HTTPException(502, f"fresh download failed (calibre copy "
+                                         f"untouched, backup at {backup_path}): {e}")
+            if proc.returncode != 0 or not Path(fresh_path).is_file():
+                tail = ((proc.stdout or "") + (proc.stderr or "")).strip()[-800:]
+                sidecar.log_event(lib, book_id, "convert_error",
+                                  {"url": url, "error": tail})
+                raise HTTPException(502, f"fresh download failed (calibre copy "
+                                         f"untouched, backup at {backup_path}): {tail}")
+
+            post = epub_mod.extract_chapters(fresh_path)
+            problems = verify_post_update(remote.chapters, post)
+            if problems:
+                sidecar.log_event(lib, book_id, "convert_postcheck_failed",
+                                  {"url": url, "problems": problems})
+                raise HTTPException(
+                    500, "fresh copy failed verification; NOT pushed to "
+                         f"calibre. Backup: {backup_path}. Problems: {problems}")
+
+            try:
+                calibre.replace_epub(book_id, Path(fresh_path).read_bytes(), lib)
+            except CalibreError as e:
+                sidecar.log_event(lib, book_id, "push_error",
+                                  {"url": url, "error": str(e)})
+                raise HTTPException(502, f"fresh epub verified but pushing to "
+                                         f"calibre failed. Backup: {backup_path}. {e}")
+
+            sidecar.save_snapshot(lib, book_id, url, site_of(url),
+                                  [c.as_dict() for c in post], baseline="exact")
+            sidecar.log_event(lib, book_id, "converted",
+                              {"url": url, "chapters": len(post)})
+            return {"converted": True, "story_url": url,
+                    "chapter_count": len(post), "backup": backup_path,
+                    "site_status": remote.status}
+    finally:
+        lock.release()
 
 
 @app.post("/books/{book_id}/update", dependencies=AUTH)

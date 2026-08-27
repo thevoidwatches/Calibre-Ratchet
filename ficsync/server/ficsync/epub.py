@@ -102,6 +102,24 @@ def read_story_url(epub_path: str) -> str | None:
     return None
 
 
+def find_story_url_in_html(epub_path: str) -> str | None:
+    """FanFicFare-plugin-style fallback for epubs with no <dc:source>: scan
+    the book's HTML for the first link a site adapter recognises, normalised
+    to the story URL. AO3's own generated epubs carry a "Posted originally on
+    the Archive..." preface link, which this finds. Uses FFF's own scanner and
+    validator so ficsync cannot disagree with the plugin about a book's URL.
+    """
+    # Imported here: fanficfare pulls in a lot, and every other path through
+    # this module is stdlib-only.
+    from fanficfare import adapters, epubutils
+    try:
+        url = epubutils.get_story_url_from_epub_html(
+            epub_path, adapters.getNormalStoryURL)
+    except Exception:
+        return None
+    return adapters.getNormalStoryURL(url) if url else None
+
+
 def extract_chapters(epub_path: str) -> list[Chapter]:
     """Ordered chapters (spine order), identified by embedded chapterurl."""
     chapters: list[Chapter] = []
