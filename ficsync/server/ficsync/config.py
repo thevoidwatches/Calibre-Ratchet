@@ -102,6 +102,10 @@ class FFFCfg:
     # "refuse": only permit clean appends; anything else needs manual handling.
     non_append_updates: str = "allow"
     timeout_seconds: int = 1800  # big serials over slow sites take a while
+    # Sites temporarily refused for add/check/update/convert (site outages,
+    # FFF breakage) — site tags as chapterkeys.site_of returns them, e.g.
+    # "archiveofourown.org". The UI hides the buttons for affected books.
+    blocked_sites: list[str] = field(default_factory=list)
 
 
 @dataclass

@@ -42,8 +42,10 @@ async function loadStoryState() {
   try {
     const st = await apiJson("/books/" + id + "/story-state");
     if (state.bookId !== id) return;      // a different book opened meanwhile
-    $("btnCheck").hidden = $("btnUpdate").hidden = !st.fff_managed;
-    $("btnConvert").hidden = !st.convertible;
+    // site_blocked: the book's site is on the server's temporary blocklist
+    // (outage, FFF breakage) — no site actions offered while it lasts.
+    $("btnCheck").hidden = $("btnUpdate").hidden = !st.fff_managed || st.site_blocked;
+    $("btnConvert").hidden = !st.convertible || st.site_blocked;
   } catch (e) {
     // A 404 just means the book has no epub — nothing to offer, no noise.
     if (state.bookId === id && !String(e.message).startsWith("404"))
