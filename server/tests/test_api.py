@@ -747,3 +747,13 @@ def test_shared_and_clipboard_urls_go_through_one_add_path():
     assert "queueAdd(shared)" in app
     # A share into a running app never reloads the page.
     assert "checkSharedStory" in app and "visibilitychange" in app
+
+
+def test_metadata_links_are_wired_without_a_module_cycle():
+    """browse.js already imports detail.js for openBook, so the book page
+    asks for a filter by event rather than importing back."""
+    detail = client.get("/ui/detail.js").text
+    browse = client.get("/ui/browse.js").text
+    assert "FILTER_BY_EVENT" in detail and "dispatchEvent" in detail
+    assert "FILTER_BY_EVENT" in browse and "addEventListener" in browse
+    assert not re.search(r"""^\s*import[^\n]*["']\./browse\.js["']""", detail, re.M)

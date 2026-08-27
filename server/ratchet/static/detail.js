@@ -1,8 +1,9 @@
 // Book detail: metadata chip editors + audit events.
 "use strict";
-import { $, state, api, apiJson, err, clearErr, show, isWritable } from "./core.js";
+import { $, state, api, apiJson, err, clearErr, show, isWritable,
+         FILTER_BY_EVENT } from "./core.js";
 import { groupSuggestions, seriesLabel, suggestValues } from "./format.js";
-import { loadCats, loadCatItems } from "./picker.js";
+import { fieldIsHierarchical, loadCats, loadCatItems } from "./picker.js";
 import { play } from "./sfx.js";
 import { refreshActions, setUpdateAvailable } from "./actions.js";
 import { refreshOpenBook } from "./catalog.js";
@@ -30,16 +31,41 @@ async function showCover(id) {
   } catch (e) { /* no cover is not an error */ }
 }
 
+/** A piece of metadata that doubles as a way to find its siblings: tapping it
+ *  filters the book list by that value. The label can differ from the value —
+ *  a series reads "Beware of Chicken #2" but filters on the series alone. */
+function filterLink(field, value, label) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "gofilter";
+  b.textContent = label === undefined ? value : label;
+  b.title = "show everything with " + field.replace(/^#/, "") + ": " + value;
+  b.onclick = () => window.dispatchEvent(new CustomEvent(FILTER_BY_EVENT, {
+    detail: {field, value, hierarchical: fieldIsHierarchical(field)},
+  }));
+  return b;
+}
+
 /** The heading block (title, series, authors) — shared by opening a book and
  *  re-rendering after a save, so a title edit shows up everywhere at once. */
 function renderHead(m) {
   state.bookMeta = m;          // the epub download names the file from this
   $("dTitle").textContent = m.title || ("book " + state.bookId);
   $("btnEditTitle").hidden = !isWritable("title");
+
   const series = seriesLabel(m);
-  $("dSeries").textContent = series;
+  $("dSeries").innerHTML = "";
   $("dSeries").hidden = !series;
-  $("dAuthors").textContent = (m.authors || []).join(", ");
+  // The index is in the label but not the filter: the point of tapping it is
+  // to find the other volumes, not this one again.
+  if (series) $("dSeries").append(filterLink("series", m.series, series));
+
+  const authors = $("dAuthors");
+  authors.innerHTML = "";
+  (m.authors || []).forEach((name, i) => {
+    if (i) authors.append(", ");
+    authors.append(filterLink("authors", name));
+  });
 }
 
 /** Pencil beside the title — exists mostly to excise the tag lists Royal
@@ -245,8 +271,15 @@ function renderMultiEditor(fs, col) {
   const cur = col.value.slice();
   for (const v of cur) {
     const c = document.createElement("span"); c.className = "chip on";
-    c.append(v);
-    const x = document.createElement("button"); x.textContent = "×";
+    // Two buttons rather than a clickable chip with a nested ×: each has one
+    // job, neither has to cancel the other's event, and both are reachable
+    // from a keyboard.
+    c.append(filterLink(col.field, v));
+    const x = document.createElement("button");
+    x.type = "button";
+    x.className = "chipx";
+    x.textContent = "×";
+    x.title = "remove";
     x.onclick = () => saveField(col.field, cur.filter(t => t !== v))
       .catch(e => { err("save failed — " + e.message); play("error"); });
     c.append(x); fs.append(c);
