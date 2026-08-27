@@ -9,13 +9,20 @@
 
 Option Explicit
 
-Dim shell, fso, here, pythonw, serverDir
+Dim shell, fso, here, pythonw, branded, serverDir
 Set shell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 
 here = fso.GetParentFolderName(WScript.ScriptFullName)
 serverDir = fso.BuildPath(here, "server")
 pythonw = fso.BuildPath(serverDir, ".venv\Scripts\pythonw.exe")
+
+' Ratchet.exe is pythonw.exe with a version resource saying "Ratchet", which
+' is the name Task Manager then shows instead of "Python". It is built by
+' server\scripts\make_launcher_exe.py and does not survive recreating the
+' virtualenv, so its absence is normal rather than an error.
+branded = fso.BuildPath(serverDir, ".venv\Scripts\Ratchet.exe")
+If fso.FileExists(branded) Then pythonw = branded
 
 If Not fso.FileExists(pythonw) Then
     MsgBox "Ratchet's virtual environment is missing:" & vbCrLf & vbCrLf & _
