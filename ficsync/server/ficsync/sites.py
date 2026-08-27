@@ -59,6 +59,16 @@ class RemoteStory:
     raw: dict            # full FFF metadata for anything else you want later
 
 
+def normalize_story_url(url: str) -> str | None:
+    """FanFicFare's own reading of a story URL — None when no site adapter
+    recognises it. Imported lazily: fanficfare pulls in a lot."""
+    from fanficfare import adapters
+    try:
+        return adapters.getNormalStoryURL(url.strip()) or None
+    except Exception:
+        return None
+
+
 def _fff_cmd_prefix(cfg: Config) -> list[str]:
     binary = cfg.fanficfare.binary
     if binary == "fanficfare" and shutil.which(binary) is None:

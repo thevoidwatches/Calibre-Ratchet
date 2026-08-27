@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import base64
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -153,6 +154,23 @@ class CalibreClient:
             "data_url": "data:application/epub+zip;base64," + b64,
         }]}
         return self.set_fields(book_id, changes, library_id)
+
+    def add_book(self, epub_bytes: bytes, filename: str,
+                 library_id: str | None = None) -> dict:
+        """Create a NEW book from an epub: POST /cdb/add-book with the raw
+        file as the body; calibre reads title/authors from the epub itself.
+
+        The path is /cdb/add-book/{job_id}/{add_duplicates}/{filename} —
+        job_id is only echoed back, and add_duplicates 'n' makes a
+        title+author match come back as {'duplicates': [...]} with no
+        'book_id' instead of silently creating a second copy."""
+        return self._request(
+            "POST",
+            f"/cdb/add-book/0/n/{quote(filename, safe='')}"
+            f"{self._lib_suffix(library_id)}",
+            content=epub_bytes,
+            headers={"Content-Type": "application/epub+zip"},
+        ).json()
 
     # -- helpers -----------------------------------------------------------
 
