@@ -10,3 +10,10 @@ personal.ini
 __pycache__/
 *.pyc
 *.sqlite3
+
+# native shell build artifacts (the android/ project itself is tracked)
+shell/node_modules/
+shell/android/.gradle/
+shell/android/build/
+shell/android/app/build/
+shell/android/local.properties

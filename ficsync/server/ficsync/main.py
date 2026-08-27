@@ -532,6 +532,26 @@ app.mount("/ui", _RevalidatingStatic(directory=Path(__file__).parent / "static",
           name="ui")
 
 
+@app.get("/apk")
+def apk() -> Response:
+    """The built Android shell, downloadable from a device's browser.
+
+    Unauthenticated on purpose: a phone browser cannot attach the token header
+    to a download, and the APK is just the app binary — it contains no
+    secrets (the token is entered inside the app, same as the web UI).
+    """
+    path = cfg.data_dir / "ratchet.apk"
+    if not path.is_file():
+        raise HTTPException(404, "no APK deployed; build the shell and copy "
+                                 "ratchet.apk into the data directory")
+    return Response(
+        content=path.read_bytes(),
+        media_type="application/vnd.android.package-archive",
+        headers={"Content-Disposition": 'attachment; filename="ratchet.apk"',
+                 "Cache-Control": "no-cache"},
+    )
+
+
 @app.get("/ui-config", dependencies=AUTH)
 def ui_config() -> dict:
     """What the embedded UI needs to render itself."""
