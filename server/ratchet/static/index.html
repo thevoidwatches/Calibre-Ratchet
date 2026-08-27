@@ -47,6 +47,13 @@
     <button class="small icon" id="btnTheme" aria-pressed="false"></button>
     <button class="small icon" id="btnMute" aria-pressed="false"></button>
     <button class="small icon" id="btnSettings" title="token">&#9881;</button>
+    <!-- Opened by holding the speaker button (or right-clicking it); the
+         short tap keeps its mute toggle. -->
+    <div id="volPop" class="volpop" hidden role="dialog" aria-label="volume">
+      <input id="volRange" type="range" min="0" max="100" step="5"
+             aria-label="volume">
+      <span id="volValue" class="small muted"></span>
+    </div>
   </div>
 </header>
 <main>

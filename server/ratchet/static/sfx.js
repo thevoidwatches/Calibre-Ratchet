@@ -1,21 +1,44 @@
-// Sounds: outcomes (success/refused/error), navigation (page-shift for a whole
-// new page, select for smaller moves), and a tap for everything else clickable.
-// Files are dropped into static/sfx/ by hand (see its README); each is
-// optional, and a missing one simply stays silent.
+// Sounds: outcomes (success/refused/error), select for moving about — a new
+// page, a step through the filter picker, a section opened or closed — and a
+// tap for everything else clickable. Files are dropped into static/sfx/ by
+// hand (see its README); each is optional, and a missing one stays silent.
 "use strict";
 import { $, UNAUTHORIZED_EVENT, VIEW_CHANGED_EVENT } from "./core.js";
 
 const MUTE_KEY = "ratchet_muted";
+const VOLUME_KEY = "ratchet_volume";
 // Several interchangeable taps, picked at random, so repeated button presses
 // do not sound like a machine.
 const TAPS = ["tap_01", "tap_02", "tap_03", "tap_04", "tap_05"];
-const NAMES = ["success", "refused", "error", "page-shift", "select", ...TAPS];
+const NAMES = ["success", "refused", "error", "select", ...TAPS];
 // wav first: it is what these sounds ship as, so the probe usually stops on
 // its first try instead of collecting 404s.
 const EXTS = ["wav", "mp3", "ogg", "m4a"];
 
 let muted = localStorage.getItem(MUTE_KEY) === "1";
 const cache = {};        // name -> HTMLAudioElement | null (null = not present)
+
+// The slider's own 0..1 position — what the reader sets and what is stored.
+// It is NOT handed to the audio element directly: see gain().
+function storedVolume() {
+  const raw = parseFloat(localStorage.getItem(VOLUME_KEY));
+  return Number.isFinite(raw) ? Math.min(1, Math.max(0, raw)) : 1;
+}
+let volume = storedVolume();
+
+// Full slider is half of what the device could actually output: these sounds
+// are UI feedback, and at a phone's full volume the raw files are shouting.
+const MAX_GAIN = 0.5;
+
+/** Slider position -> amplitude.
+ *
+ *  Squared, because an audio element's volume is linear amplitude while
+ *  hearing is closer to logarithmic: mapping the slider straight across makes
+ *  the bottom half of its travel sound barely quieter than the top. Squaring
+ *  gives the low end somewhere to go. */
+function gain() {
+  return MAX_GAIN * volume * volume;
+}
 
 /** Find whichever extension the user actually dropped in, once per name. */
 async function resolve(name) {
@@ -40,10 +63,11 @@ async function resolve(name) {
 
 export async function play(name) {
   if (name === "tap") name = TAPS[Math.floor(Math.random() * TAPS.length)];
-  if (muted || !NAMES.includes(name)) return;
+  if (muted || volume === 0 || !NAMES.includes(name)) return;
   const audio = await resolve(name);
   if (!audio) return;
   try {
+    audio.volume = gain();
     audio.currentTime = 0;
     // Mobile browsers reject playback without a prior user gesture; every
     // call site here follows a button tap, but never let a rejection surface
@@ -74,11 +98,86 @@ const SPEAKER_MUTED =
 
 function render() {
   const btn = $("btnMute");
-  btn.innerHTML = muted ? SPEAKER_MUTED : SPEAKER;
-  const label = muted ? "unmute sounds" : "mute sounds";
+  // Volume 0 is muted in every way that matters, so the icon says so.
+  const silent = muted || volume === 0;
+  btn.innerHTML = silent ? SPEAKER_MUTED : SPEAKER;
+  const label = (silent ? "unmute sounds" : "mute sounds") + " (hold for volume)";
   btn.title = label;
   btn.setAttribute("aria-label", label);
-  btn.setAttribute("aria-pressed", String(muted));
+  btn.setAttribute("aria-pressed", String(silent));
+  const range = $("volRange"), value = $("volValue");
+  if (range) range.value = String(Math.round(volume * 100));
+  if (value) value.textContent = Math.round(volume * 100) + "%";
+}
+
+// ---- volume popover -------------------------------------------------------
+//
+// A hold on the speaker rather than a permanent slider: volume is set once in
+// a while, and the header has three buttons and a library selector to fit on
+// a phone already.
+
+const HOLD_MS = 450;
+
+function volumeOpen() { return !$("volPop").hidden; }
+
+function closeVolume() {
+  const pop = $("volPop");
+  if (pop) pop.hidden = true;
+}
+
+function openVolume() {
+  const pop = $("volPop");
+  if (!pop) return;
+  render();                 // slider starts at the stored value
+  pop.hidden = false;
+  $("volRange").focus();
+}
+
+function setVolume(next) {
+  volume = Math.min(1, Math.max(0, next));
+  localStorage.setItem(VOLUME_KEY, String(volume));
+  // Reaching for the slider means wanting sound; staying muted would make it
+  // look broken.
+  if (volume > 0) muted = false;
+  localStorage.setItem(MUTE_KEY, muted ? "1" : "0");
+  render();
+}
+
+function initVolume() {
+  const btn = $("btnMute"), pop = $("volPop"), range = $("volRange");
+  if (!btn || !pop || !range) return;
+
+  let timer = null, opened = false;
+  const cancel = () => { clearTimeout(timer); timer = null; };
+
+  btn.addEventListener("pointerdown", () => {
+    opened = false;
+    timer = setTimeout(() => { opened = true; openVolume(); }, HOLD_MS);
+  });
+  for (const ev of ["pointerup", "pointercancel", "pointerleave"])
+    btn.addEventListener(ev, cancel);
+  // A hold has already acted; the click that follows must not also toggle mute.
+  btn.addEventListener("click", e => {
+    if (!opened) return;
+    opened = false;
+    e.stopImmediatePropagation();
+    e.preventDefault();
+  }, true);
+  // The desktop equivalent of a long press.
+  btn.addEventListener("contextmenu", e => { e.preventDefault(); openVolume(); });
+
+  range.addEventListener("input", () => setVolume(Number(range.value) / 100));
+  // Preview on release rather than on every step, which would stutter.
+  range.addEventListener("change", () => play("tap"));
+
+  document.addEventListener("pointerdown", e => {
+    if (!volumeOpen()) return;
+    if (!e.target.closest("#volPop") && !e.target.closest("#btnMute"))
+      closeVolume();
+  });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && volumeOpen()) closeVolume();
+  });
 }
 
 /** Resolve and preload every sound once, on the first tap.
@@ -127,10 +226,7 @@ export function initSfx() {
   document.addEventListener("keydown", warm, {once: true});
   document.addEventListener("click", routeClick);
 
-  // Navigation: a whole new page, except stepping deeper into the filter
-  // picker, which is a smaller move within the same task.
-  window.addEventListener(VIEW_CHANGED_EVENT, e =>
-    play(e.detail && e.detail.view === "pickval" ? "select" : "page-shift"));
+  window.addEventListener(VIEW_CHANGED_EVENT, () => play("select"));
 
   // A rejected token is a refusal like any other. On a cold load with a bad
   // stored token this fires before the first tap, so the browser may swallow
@@ -139,8 +235,12 @@ export function initSfx() {
 
   const btn = $("btnMute");
   if (!btn) return;
+  initVolume();
   render();
   btn.onclick = () => {
+    // Unmuting at zero volume would be silent and look broken; give it a
+    // usable level back.
+    if (muted && volume === 0) setVolume(1);
     muted = !muted;
     localStorage.setItem(MUTE_KEY, muted ? "1" : "0");
     render();
