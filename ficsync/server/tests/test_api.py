@@ -368,9 +368,10 @@ def test_views_participate_in_history_for_the_android_back_button():
     assert "popstate" in app and "history.back()" in app
 
 
-def test_header_wordmark_is_wired_and_inverts_in_dark_mode():
-    assert client.get("/ui/logo.png").status_code == 200
+def test_header_wordmark_has_per_theme_art():
+    assert client.get("/ui/logo-light.png").status_code == 200
+    assert client.get("/ui/logo-dark.png").status_code == 200
     html = client.get("/ui/").text
-    assert 'src="logo.png"' in html and 'alt="Ratchet"' in html
-    css = client.get("/ui/ui.css").text
-    assert "invert(1)" in css      # dark-mode flip for the black-outline art
+    assert 'src="logo-light.png"' in html and 'alt="Ratchet"' in html
+    theme = client.get("/ui/theme.js").text
+    assert "logo-dark.png" in theme and "logo-light.png" in theme
