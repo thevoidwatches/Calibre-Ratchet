@@ -51,11 +51,25 @@ export function playForDecision(d) {
   else if (d.updated === true) play("success");
 }
 
+// Monochrome inline icons; the speaker shows the CURRENT state (slashed while
+// muted), which is the convention for volume indicators.
+const SPEAKER =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"' +
+  ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor"/>' +
+  '<path d="M15.5 8.5a5 5 0 0 1 0 7M18.4 5.6a9 9 0 0 1 0 12.8"/></svg>';
+const SPEAKER_MUTED =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"' +
+  ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor"/>' +
+  '<path d="M23 9l-6 6M17 9l6 6"/></svg>';
+
 function render() {
   const btn = $("btnMute");
-  // Labelled by the action the tap performs, not the current state.
-  btn.textContent = muted ? "Unmute" : "Mute";
-  btn.title = muted ? "sounds are off" : "sounds are on";
+  btn.innerHTML = muted ? SPEAKER_MUTED : SPEAKER;
+  const label = muted ? "unmute sounds" : "mute sounds";
+  btn.title = label;
+  btn.setAttribute("aria-label", label);
   btn.setAttribute("aria-pressed", String(muted));
 }
 

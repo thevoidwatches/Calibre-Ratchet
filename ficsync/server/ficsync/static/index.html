@@ -23,24 +23,28 @@
 </head>
 <body>
 <header>
-  <h1><img src="logo-light.png" alt="Ratchet" class="logo"></h1>
+  <h1><a id="apkLink" href="/apk" title="Download the latest Ratchet app"><img src="logo-light.png" alt="Ratchet" class="logo"></a></h1>
   <select id="librarySelect" aria-label="library" disabled>
     <!-- Replaced once /libraries answers; until then (and on the token
          screen, which never gets that far) this is what shows. -->
     <option value="">Library</option>
   </select>
   <div class="controls">
-    <button class="small" id="btnTheme" aria-pressed="false">Dark</button>
-    <button class="small" id="btnMute" aria-pressed="false">Mute</button>
+    <button class="small icon" id="btnTheme" aria-pressed="false"></button>
+    <button class="small icon" id="btnMute" aria-pressed="false"></button>
     <button class="small icon" id="btnSettings" title="token">&#9881;</button>
   </div>
 </header>
 <main>
+  <div id="storageBanner" class="err" hidden>
+    <span id="storageBannerText"></span>
+    <button class="small" id="btnGrantStorage">Grant access</button>
+  </div>
   <div id="errBox" class="err" hidden></div>
 
   <!-- token setup -->
   <section id="vToken" hidden>
-    <p>Enter your Ratchet token.</p>
+    <p>Enter your Ratchet passkey.</p>
     <div class="row"><input type="text" id="tokenInput" placeholder="token">
     <button class="primary" id="btnSaveToken">Login</button></div>
   </section>

@@ -8,6 +8,7 @@ import { initSfx, play } from "./sfx.js";
 import { initTheme } from "./theme.js";
 import { initFilters, loadSavedFilters } from "./filters.js";
 import { openBook } from "./detail.js";
+import { ensureStorage, initStorage, inShell, openExternal } from "./storage.js";
 
 // On-screen back/cancel buttons pop history rather than jumping, so they and
 // the system back button always agree about where "back" goes.
@@ -27,6 +28,29 @@ window.addEventListener("popstate", e => {
 initTheme();
 initSfx();
 initFilters();
+initStorage();
+
+// The wordmark is the app-update link. A tap asks first — it is easy to hit
+// by accident — then downloads: plain browsers follow the href, while in the
+// shell the WebView cannot download, so the system browser opens instead.
+$("apkLink").addEventListener("click", e => {
+  e.preventDefault();
+  if (!confirm("Download the latest version of the Ratchet app?")) return;
+  if (inShell()) openExternal(window.location.origin + "/apk");
+  else window.location.href = "/apk";
+});
+
+// Inside the Android shell the WebView keeps this page alive across app
+// switches — without this, an app "reopened" days later still runs whatever
+// was loaded back then (stale JS, CSS, logos). Reload when coming back to the
+// foreground after a real absence; short flips keep their state.
+const STALE_AFTER_MS = 5 * 60 * 1000;
+let hiddenAt = null;
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") { hiddenAt = Date.now(); return; }
+  if (hiddenAt && Date.now() - hiddenAt > STALE_AFTER_MS) location.reload();
+  hiddenAt = null;
+});
 
 $("btnSettings").onclick = () => { $("tokenInput").value = state.token; show("token"); };
 $("btnSaveToken").onclick = () => {
@@ -132,6 +156,7 @@ async function boot({announce = false} = {}) {
   } catch (e) { resetLibrarySelect(); return; }  // 401 already routed to the token view
   if (announce) play("success");   // the token was accepted
   await loadLibraries();
+  ensureStorage();          // shell only: Ratchet/<library>/ folders on device
   show("browse");
   renderFilterChips();
   renderFilterBar();
