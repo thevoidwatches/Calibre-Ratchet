@@ -15,6 +15,9 @@ function effective() {
 
 function apply(theme) {
   document.documentElement.setAttribute("data-theme", theme);
+  // The wordmark is hand-drawn per theme rather than filtered.
+  const logo = document.querySelector("header h1 .logo");
+  if (logo) logo.src = theme === "dark" ? "logo-dark.png" : "logo-light.png";
   // Keep the browser chrome (address bar, PWA title bar) in step.
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute("content", theme === "dark" ? "#000000" : "#ffffff");
