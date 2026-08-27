@@ -104,12 +104,20 @@ details.fieldset[open] > summary .fvalue { display: none; }
 
 .err { border: 2px solid var(--fg); background: var(--shade-1); padding: 8px;
        margin: 8px 0; white-space: pre-wrap; }
+#storageBanner { display: flex; align-items: center; gap: 10px; }
+#storageBanner[hidden] { display: none; }
+#storageBanner span { flex: 1 1 auto; }
+
+#vToken p { text-align: center; }
 
 [hidden] { display: none !important; }
 a { color: var(--fg); }
 
 /* Search row: filter icon, query box, Go — all one line. */
 button.icon { min-width: 44px; padding: 8px 10px; font-size: 1.1rem; line-height: 1; }
+button.icon svg { display: block; width: 20px; height: 20px; margin: 0 auto; }
+/* .small.icon buttons (header) stay compact around their glyph. */
+button.small.icon { min-width: 40px; padding: 6px 8px; }
 
 /* Book rows: no outlines, just an alternating tint. nth-child counts the rows
    actually rendered, so the banding follows the current filter and sort (and

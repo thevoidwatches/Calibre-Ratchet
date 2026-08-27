@@ -382,3 +382,37 @@ def test_apk_route_404s_cleanly_until_a_build_is_deployed():
     assert r.status_code in (200, 404)
     if r.status_code == 200:
         assert r.headers["content-type"] == "application/vnd.android.package-archive"
+
+
+def test_header_toggles_are_monochrome_svg_not_emoji():
+    """Emoji render as coloured glyphs on Android; the toggles must be inline
+    SVGs driven by currentColor so they follow the theme."""
+    theme = client.get("/ui/theme.js").text
+    sfx = client.get("/ui/sfx.js").text
+    for src_js in (theme, sfx):
+        assert "<svg" in src_js and "currentColor" in src_js
+    html = client.get("/ui/").text
+    row = html.split('id="btnTheme"')[1].split("</button>")[0]
+    assert "Dark" not in row          # no word label left in the markup
+
+
+def test_long_lived_webview_reloads_on_return():
+    """The Android shell keeps the page alive across app switches; a return
+    after a real absence must pick up served changes."""
+    app = client.get("/ui/app.js").text
+    assert "visibilitychange" in app and "location.reload()" in app
+
+
+def test_device_storage_module_is_inert_outside_the_shell():
+    js = client.get("/ui/storage.js").text
+    assert "RatchetNative" in js and 'directory: "EXTERNAL_STORAGE"' in js
+    assert "inShell" in js            # everything gates on the bridge existing
+    html = client.get("/ui/").text
+    assert 'id="storageBanner"' in html and 'id="btnGrantStorage"' in html
+
+
+def test_wordmark_is_a_confirmed_update_link():
+    html = client.get("/ui/").text
+    assert 'id="apkLink"' in html and 'href="/apk"' in html
+    app = client.get("/ui/app.js").text
+    assert "Download the latest version" in app and "confirm(" in app
