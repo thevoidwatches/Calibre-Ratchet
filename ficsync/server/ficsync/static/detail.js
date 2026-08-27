@@ -4,7 +4,7 @@ import { $, state, api, apiJson, err, clearErr, show, isWritable } from "./core.
 import { seriesLabel } from "./format.js";
 import { loadCats, loadCatItems } from "./picker.js";
 import { play } from "./sfx.js";
-import { setUpdateAvailable } from "./actions.js";
+import { refreshActions, setUpdateAvailable } from "./actions.js";
 
 // Category display name for a field ("#genre" -> "Genre"), so the chip
 // editors reuse the vocabulary the filter picker already loads.
@@ -46,6 +46,7 @@ export async function openBook(id, push = true) {
     show("detail", push);
     // The entry needs the book id so popstate can reopen this exact book.
     if (push) history.replaceState({view: "detail", bookId: id}, "");
+    refreshActions();
     showCover(id);
     await loadCats();          // catNameFor needs the category map
     renderEditors(m);

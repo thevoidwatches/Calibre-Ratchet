@@ -1,7 +1,9 @@
 // Check / Update / epub download + decision rendering.
 "use strict";
 import { $, state, api, apiJson, err, clearErr } from "./core.js";
-import { epubFilename } from "./format.js";
+import { epubFilename, isDownloadedManaged } from "./format.js";
+import { inShell, statBook, saveBookToDevice, deleteBookFromDevice,
+         deviceCopyIsStale, openBookInReader } from "./storage.js";
 import { play, playForDecision } from "./sfx.js";
 
 /** The Update button is only emphasised once a Check has actually found new
@@ -15,7 +17,22 @@ export function setUpdateAvailable(available) {
 function busy(msg) {
   $("busy").hidden = !msg;
   $("busy").textContent = msg || "";
-  for (const id of ["btnCheck", "btnUpdate", "btnEpub"]) $(id).disabled = !!msg;
+  for (const id of ["btnRead", "btnCheck", "btnUpdate", "btnEpub"])
+    $(id).disabled = !!msg;
+}
+
+/** Set the action buttons up for the open book: Check/Update only for
+ *  #downloaded-managed books, Read only in the shell, and Get EPUB doubling
+ *  as Delete while a device copy exists. */
+export async function refreshActions() {
+  const meta = state.bookMeta || {};
+  const managed = isDownloadedManaged(meta);
+  $("btnCheck").hidden = !managed;
+  $("btnUpdate").hidden = !managed;
+  const shell = inShell();
+  $("btnRead").hidden = !shell;
+  if (!shell) { $("btnEpub").textContent = "Get"; return; }
+  $("btnEpub").textContent = (await statBook(meta)) ? "Delete" : "Get";
 }
 
 function renderDecision(d) {
@@ -109,11 +126,49 @@ async function saveEpub(blob, filename) {
   URL.revokeObjectURL(a.href);
 }
 
+/** One tap from list to reading: make sure the device copy is current, then
+ *  hand it to Moon+. Downloads only when calibre's copy is newer or the file
+ *  is missing — the same path every time, so Moon+ keeps its position. */
+$("btnRead").onclick = async () => {
+  clearErr();
+  const meta = state.bookMeta;
+  try {
+    if (await deviceCopyIsStale(meta)) {
+      busy("downloading to this device…");
+      await saveBookToDevice(meta);
+      await refreshActions();
+    }
+    busy("opening…");
+    await openBookInReader(meta);
+  } catch (e) { err("could not open — " + e.message); play("error"); }
+  finally { busy(null); }
+};
+
 $("btnEpub").onclick = async () => {
-  clearErr(); busy("downloading epub…");
+  clearErr();
+  const meta = state.bookMeta || {id: state.bookId};
+  // In the shell this button manages the device copy: fetch it when absent,
+  // delete it when present (re-fetching is then one more tap).
+  if (inShell()) {
+    try {
+      if (await statBook(meta)) {
+        if (!confirm("Delete this book's file from the device?")) return;
+        busy("deleting…");
+        await deleteBookFromDevice(meta);
+      } else {
+        busy("downloading to this device…");
+        await saveBookToDevice(meta);
+      }
+      await refreshActions();
+      play("success");
+    } catch (e) { err("failed — " + e.message); play("error"); }
+    finally { busy(null); }
+    return;
+  }
+  busy("downloading epub…");
   try {
     const blob = await (await api("/books/" + state.bookId + "/epub")).blob();
-    await saveEpub(blob, epubFilename(state.bookMeta || {id: state.bookId}));
+    await saveEpub(blob, epubFilename(meta));
     play("success");
   } catch (e) {
     // Dismissing the folder picker is a choice, not a failure.
