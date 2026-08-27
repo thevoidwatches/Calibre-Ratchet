@@ -39,13 +39,3 @@ export function epubFilename(meta) {
   stem = stem.slice(0, MAX_STEM).replace(/[. ]+$/, "");
   return (stem || String(m.id ?? "book")) + ".epub";
 }
-
-
-/** True when the book is site-download-managed: the calibre library has a
- *  bool column named #downloaded AND it is set on this book. Libraries
- *  without the column (plain purchased books) get no Check/Update at all. */
-export function isDownloadedManaged(meta) {
-  const um = (meta && meta.user_metadata) || null;
-  if (!um || !("#downloaded" in um)) return false;
-  return um["#downloaded"]["#value#"] === true;
-}

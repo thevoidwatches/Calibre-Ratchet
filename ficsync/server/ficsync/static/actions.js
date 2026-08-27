@@ -1,7 +1,7 @@
 // Check / Update / epub download + decision rendering.
 "use strict";
 import { $, state, api, apiJson, err, clearErr } from "./core.js";
-import { epubFilename, isDownloadedManaged } from "./format.js";
+import { epubFilename } from "./format.js";
 import { inShell, statBook, saveBookToDevice, deleteBookFromDevice,
          deviceCopyIsStale, openBookInReader } from "./storage.js";
 import { play, playForDecision } from "./sfx.js";
@@ -17,22 +17,38 @@ export function setUpdateAvailable(available) {
 function busy(msg) {
   $("busy").hidden = !msg;
   $("busy").textContent = msg || "";
-  for (const id of ["btnRead", "btnCheck", "btnUpdate", "btnEpub"])
+  for (const id of ["btnRead", "btnCheck", "btnUpdate", "btnConvert", "btnEpub"])
     $(id).disabled = !!msg;
 }
 
-/** Set the action buttons up for the open book: Check/Update only for
- *  #downloaded-managed books, Read only in the shell, and Get EPUB doubling
- *  as Delete while a device copy exists. */
+/** Set the action buttons up for the open book: Check/Update or Convert per
+ *  the server's story-state, Read only in the shell, and Get doubling as
+ *  Delete while a device copy exists. */
 export async function refreshActions() {
   const meta = state.bookMeta || {};
-  const managed = isDownloadedManaged(meta);
-  $("btnCheck").hidden = !managed;
-  $("btnUpdate").hidden = !managed;
+  // Hidden until the server says which mode this book is in: FFF-managed
+  // (Check/Update), site-sourced but not FFF-made (Convert), or neither.
+  // The epub itself is the authority — no metadata column involved.
+  $("btnCheck").hidden = $("btnUpdate").hidden = $("btnConvert").hidden = true;
+  loadStoryState();
   const shell = inShell();
   $("btnRead").hidden = !shell;
   if (!shell) { $("btnEpub").textContent = "Get"; return; }
   $("btnEpub").textContent = (await statBook(meta)) ? "Delete" : "Get";
+}
+
+async function loadStoryState() {
+  const id = state.bookId;
+  try {
+    const st = await apiJson("/books/" + id + "/story-state");
+    if (state.bookId !== id) return;      // a different book opened meanwhile
+    $("btnCheck").hidden = $("btnUpdate").hidden = !st.fff_managed;
+    $("btnConvert").hidden = !st.convertible;
+  } catch (e) {
+    // A 404 just means the book has no epub — nothing to offer, no noise.
+    if (state.bookId === id && !String(e.message).startsWith("404"))
+      err("could not read story state — " + e.message);
+  }
 }
 
 function renderDecision(d) {
@@ -141,6 +157,30 @@ $("btnRead").onclick = async () => {
     busy("opening…");
     await openBookInReader(meta);
   } catch (e) { err("could not open — " + e.message); play("error"); }
+  finally { busy(null); }
+};
+
+$("btnConvert").onclick = async () => {
+  if (!confirm(
+      "Replace this book with a fresh download from the site?\n\n" +
+      "The current file is backed up on the server, but this first conversion " +
+      "cannot check for chapters the author may have deleted. Afterwards the " +
+      "book is fully managed and protected.")) return;
+  clearErr();
+  busy("downloading a fresh copy from the site — this can take minutes…");
+  try {
+    const d = await apiJson("/books/" + state.bookId + "/convert", {method: "POST"});
+    const box = $("decision"); box.hidden = false;
+    box.innerHTML = "";
+    const head = document.createElement("div");
+    head.className = "box";
+    head.style.whiteSpace = "pre-wrap";
+    head.textContent = "✓ CONVERTED — now FanFicFare-managed, " +
+      d.chapter_count + " chapters\nbackup: " + d.backup;
+    box.append(head);
+    play("success");
+    refreshActions();     // Check/Update take this button's place
+  } catch (e) { err("convert failed — " + e.message); play("error"); }
   finally { busy(null); }
 };
 

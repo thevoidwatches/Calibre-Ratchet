@@ -416,3 +416,13 @@ def test_wordmark_is_a_confirmed_update_link():
     assert 'id="apkLink"' in html and 'href="/apk"' in html
     app = client.get("/ui/app.js").text
     assert "Download the latest version" in app and "confirm(" in app
+
+
+def test_story_state_requires_token_and_fails_cleanly_offline():
+    assert client.get("/books/1/story-state").status_code == 401
+    r = client.get("/books/1/story-state", headers=TOK)
+    assert r.status_code in (404, 502)     # calibre unreachable here
+
+
+def test_convert_requires_token():
+    assert client.post("/books/1/convert").status_code == 401
