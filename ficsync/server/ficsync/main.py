@@ -121,6 +121,14 @@ def _fetch_epub_to_temp(library_id: str, book_id: int) -> tuple[str, tempfile.Te
     return path, tmp
 
 
+def _book_exists(library_id: str, book_id: int) -> bool:
+    """Whether calibre still holds this book. calibre answers for a deleted
+    id with a null entry rather than an error (verified against 9.13), so a
+    real connection failure still raises instead of being read as deletion."""
+    got = calibre.books([book_id], library_id)
+    return got.get(str(book_id)) is not None
+
+
 def _blocked_site(url: str | None) -> str | None:
     """The url's site tag when it is on the config blocklist, else None."""
     if not url:
@@ -287,9 +295,16 @@ def add_book(url: str = Body(embed=True), library: str | None = LIB_Q) -> dict:
     _reject_blocked(norm)
     existing = sidecar.find_by_url(lib, norm)
     if existing is not None:
-        raise HTTPException(
-            409, f"already in this library as book {existing} "
-                 "(per ficsync's records)")
+        # The record outlives the book: deleting from calibre does not tell
+        # ficsync. Confirm the book is really still there before refusing,
+        # otherwise a deleted story could never be re-added. A calibre that
+        # is merely unreachable raises here rather than reading as deleted.
+        if _book_exists(lib, existing):
+            raise HTTPException(
+                409, f"already in this library as book {existing}")
+        log.info("add: book %s (%s) is gone from calibre — dropping its stale "
+                 "record and re-adding", existing, _libname(lib))
+        sidecar.forget_book(lib, existing)
     log.info("add: %s → checking the site…", norm)
     try:
         remote = fetch_remote(norm, cfg)

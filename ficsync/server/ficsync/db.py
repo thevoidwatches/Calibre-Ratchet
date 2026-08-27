@@ -108,6 +108,16 @@ class Sidecar:
                 (library_id, story_url)).fetchone()
         return row[0] if row else None
 
+    def forget_book(self, library_id: str, book_id: int) -> None:
+        """Drop a book's snapshot and chapter list — for books deleted from
+        calibre, whose records would otherwise outlive them. Events are left
+        alone: they are the audit trail of what happened to that book."""
+        with self._lock, self._conn:
+            self._conn.execute("DELETE FROM books WHERE library_id=? AND book_id=?",
+                               (library_id, book_id))
+            self._conn.execute("DELETE FROM chapters WHERE library_id=? AND book_id=?",
+                               (library_id, book_id))
+
     def get_snapshot(self, library_id: str, book_id: int) -> dict | None:
         with self._lock:
             row = self._conn.execute(
