@@ -1,7 +1,13 @@
 @echo off
 setlocal
 
-rem Start the Ratchet service.
+rem Start the Ratchet service in a console window.
+rem
+rem For everyday use prefer Ratchet.vbs, which puts Ratchet in the notification
+rem area with no window at all (and is what the login task runs). This script is
+rem the one to use when something is misbehaving and you want to watch it: the
+rem same service, narrating to a window instead of to
+rem %LOCALAPPDATA%\ficsync\ratchet.log.
 rem
 rem Double-click it, or run it from any directory - paths are resolved relative
 rem to this file, not to the current one.
