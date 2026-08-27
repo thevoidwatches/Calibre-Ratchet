@@ -1,0 +1,41 @@
+[service]
+host = "tailscale"        # "tailscale" = this machine's tailnet address, looked up
+                          # at startup (an IP can change; a literal would go stale).
+                          # Also accepts a literal IP, "127.0.0.1" for local-only,
+                          # or "0.0.0.0" for every interface including the LAN.
+port = 8484
+auth_token = ""            # set in .env: RATCHET_AUTH_TOKEN=<long random string>
+# data_dir: where the sidecar DB and pre-update backups live. Default if omitted:
+#   Windows: %LOCALAPPDATA%\Ratchet      elsewhere: ~/.local/share/ratchet
+# Windows TOML note: use forward slashes ("C:/ratchet-data") or a single-quoted
+# literal string ('C:\ratchet-data') — backslashes in "double quotes" are escapes.
+#data_dir = "C:/ratchet-data"
+backups_keep = 5           # pre-update epub backups kept per book
+
+[calibre]
+base_url = "http://127.0.0.1:8080"
+library_id = ""            # empty = server's default library; else the id from
+                           # /ajax/library-info (usually the library folder name)
+username = ""              # if your content server requires auth; prefer putting
+password = ""              # these in a .env file next to config.toml instead:
+                           # RATCHET_CALIBRE_USERNAME= / RATCHET_CALIBRE_PASSWORD=
+                           # (RATCHET_AUTH_TOKEN= works there too; real env vars win)
+identifier_key = "url"     # where the FFF plugin stores story URLs (fallback only;
+                           # the epub's dc:source is used first)
+genre_field = "#genre"     # custom column shown beside tags in the book list
+                           # ("" to show none)
+writable_fields = ["title", "tags", "rating", "#*"]   # fnmatch patterns for POST /fields
+
+[fanficfare]
+binary = "fanficfare"      # leave as-is: if not on PATH (unactivated venv), Ratchet
+                           # falls back to running FFF inside its own interpreter
+config_file = ""           # optional: path to a personal.ini (passed with -c)
+extra_options = []         # e.g. ["-o", "is_adult=true"]
+non_append_updates = "allow"   # "refuse" to require manual handling of
+                               # mid-list insertions/reorders
+timeout_seconds = 1800
+blocked_sites = []          # site tags refused temporarily, e.g. ["archiveofourown.org"]
+include_images = "true"     # "true", "coveronly" or "false"; applies to epub downloads only
+
+[politeness]
+min_seconds_between_site_requests = 5.0

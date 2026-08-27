@@ -1,4 +1,4 @@
-# ficsync — plan and design notes
+# Ratchet — plan and design notes
 
 Personal service that removes the friction in the e-reading loop
 (calibre + FanFicFare on the desktop -> Calibre Sync -> Moon+ on an Android
@@ -176,7 +176,7 @@ POST /cdb/set-fields/{id}/{lib}    body {"changes":{…},"loaded_book_ids":[]}
 
 `{lib}` is optional everywhere (`{library_id=None}` in the routes) — empty
 string = default library. This setup has four libraries (Books, Fanfiction,
-Erotica, Serials), so the library is chosen **per request**: every ficsync
+Erotica, Serials), so the library is chosen **per request**: every Ratchet
 endpoint takes `?library=`, `GET /libraries` lists them, and the UI has a
 library selector. Book ids are only unique within a library, so the sidecar
 DB and the per-book update locks are keyed by `(library_id, book_id)`.
@@ -222,7 +222,7 @@ chapter list, so nothing is ever *silently* at risk.
 ## 4. What's already built (this repo)
 
 ```
-server/ficsync/
+server/ratchet/
   chapterkeys.py   canonical chapter identity (RR/AO3 patterns mirror FFF's)
   epub.py          dc:source + ordered chapter extraction from FFF epubs
   sites.py         remote list via `fanficfare -m -j --no-output` + throttle
@@ -256,7 +256,7 @@ What the tests can't cover from here: anything that needs *your* live calibre,
 > Command equivalents for the steps below: `python` not `python3`; in
 > PowerShell use `curl.exe` (bare `curl` aliases Invoke-WebRequest); activate
 > the venv with `.venv\Scripts\Activate.ps1`; autostart is a Task Scheduler
-> task, not systemd — see `ficsync/server/README.md` for the full Windows setup.
+> task, not systemd — see `server/README.md` for the full Windows setup.
 
 1. **S1 — env sanity (10 min).** venv, `pip install -r requirements.txt`,
    `pytest -q` (should be 13 green), `fanficfare --version`.
@@ -290,7 +290,7 @@ What the tests can't cover from here: anything that needs *your* live calibre,
    - `curl -su user:pass --digest http://127.0.0.1:8080/ajax/library-info`
    - download one epub via `/get/EPUB/<id>` and, on a **throwaway test book**,
      verify set-fields: change a tag, then push the same epub back through
-     `POST /cdb/set-fields` with `added_formats` (or just run ficsync's
+     `POST /cdb/set-fields` with `added_formats` (or just run Ratchet's
      `/update` on an already-current book — it exercises the same call).
    - **[VERIFY on your setup]**: `added_formats` in set-fields exists in
      calibre master now; if your installed calibre is old enough to lack it,
@@ -312,10 +312,10 @@ What the tests can't cover from here: anything that needs *your* live calibre,
 
    The 8 exceptions in Serials, and what each needs:
    - `no-chapterurls` (pre-chapterurl-era FFF epubs) — refresh once via the
-     desktop FFF plugin before ficsync will update them: **24** (Shrouding the
+     desktop FFF plugin before Ratchet will update them: **24** (Shrouding the
      Heavens), **87** (A Record of a Mortal's Journey to Immortality).
    - `no dc:source` (not FanFicFare epubs at all — bought/sideloaded) — these
-     are not updatable by any tool and simply aren't ficsync's business;
+     are not updatable by any tool and simply aren't Ratchet's business;
      metadata editing still works on them: **90–94** (Beware of Chicken 1–5),
      **95** (Blue Core).
 
@@ -330,7 +330,7 @@ What the tests can't cover from here: anything that needs *your* live calibre,
    **[VERIFY on your setup]**: FFF plugin custom columns you rely on are
    populated from the *plugin*, not the epub — a CLI update won't refresh
    plugin-managed columns like "last updated". Decide whether you care; if
-   yes, easiest fix is updating those fields from ficsync's own data
+   yes, easiest fix is updating those fields from ratchet's own data
    (`remote.raw` has everything) via set-fields — small follow-up.
 6. **S6 — insertion live test (optional, one evening).** If you want
    empirical confirmation of the non-append path before trusting

@@ -7,7 +7,7 @@ rem For everyday use prefer Ratchet.vbs, which puts Ratchet in the notification
 rem area with no window at all (and is what the login task runs). This script is
 rem the one to use when something is misbehaving and you want to watch it: the
 rem same service, narrating to a window instead of to
-rem %LOCALAPPDATA%\ficsync\ratchet.log.
+rem %LOCALAPPDATA%\Ratchet\ratchet.log.
 rem
 rem Double-click it, or run it from any directory - paths are resolved relative
 rem to this file, not to the current one.
@@ -16,7 +16,7 @@ rem For Task Scheduler, pass /noprompt so a failure exits instead of waiting at
 rem a "Press any key" nobody is there to press:
 rem     run.bat /noprompt
 
-set "SERVER_DIR=%~dp0ficsync\server"
+set "SERVER_DIR=%~dp0server"
 set "VENV_PY=%SERVER_DIR%\.venv\Scripts\python.exe"
 
 if not exist "%VENV_PY%" (
@@ -47,7 +47,7 @@ cd /d "%SERVER_DIR%"
 
 echo Starting Ratchet.  Close this window or press Ctrl+C to stop it.
 echo.
-"%VENV_PY%" -m ficsync
+"%VENV_PY%" -m ratchet
 if errorlevel 1 (
     echo.
     echo Ratchet stopped with an error.

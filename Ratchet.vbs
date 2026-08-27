@@ -1,7 +1,7 @@
 ' Start Ratchet in the notification area, with no console window.
 '
 ' Double-click this, or let the scheduled task created by
-' ficsync\server\scripts\install_autostart.ps1 run it at login.
+' server\scripts\install_autostart.ps1 run it at login.
 '
 ' A .vbs rather than a .bat because a batch file flashes a console window on
 ' the way to launching pythonw; this does not. For a visible console (when
@@ -14,7 +14,7 @@ Set shell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 
 here = fso.GetParentFolderName(WScript.ScriptFullName)
-serverDir = fso.BuildPath(here, "ficsync\server")
+serverDir = fso.BuildPath(here, "server")
 pythonw = fso.BuildPath(serverDir, ".venv\Scripts\pythonw.exe")
 
 If Not fso.FileExists(pythonw) Then
@@ -30,4 +30,4 @@ End If
 ' The service reads config.toml from the working directory.
 shell.CurrentDirectory = serverDir
 ' 0 = hidden window, False = don't wait for it to finish.
-shell.Run """" & pythonw & """ -m ficsync --tray", 0, False
+shell.Run """" & pythonw & """ -m ratchet --tray", 0, False
