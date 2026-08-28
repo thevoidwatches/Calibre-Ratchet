@@ -139,6 +139,14 @@ details.fieldset[open] > summary .fvalue { display: none; }
 .fieldset .desc p:first-child { margin-top: 0; }
 .fieldset .desc p:last-child { margin-bottom: 0; }
 
+/* Expander beside a family in the value picker. Literal glyphs rather than
+   CSS escapes — an escaped one once ended up as a control byte here. */
+.tree .twist { background: none; border: none; color: inherit; font: inherit;
+               padding: 0 6px; min-height: 34px; cursor: pointer; }
+.tree li { display: flex; flex-wrap: wrap; align-items: center; }
+.tree li > ul { flex: 1 0 100%; }
+.tree li > ul[hidden] { display: none; }
+
 .tree { list-style: none; padding-left: 0; }
 .tree ul { list-style: none; padding-left: 18px; }
 .tree .node { display: inline-block; padding: 7px 4px; min-height: 38px; }
