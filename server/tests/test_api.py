@@ -757,3 +757,16 @@ def test_metadata_links_are_wired_without_a_module_cycle():
     assert "FILTER_BY_EVENT" in detail and "dispatchEvent" in detail
     assert "FILTER_BY_EVENT" in browse and "addEventListener" in browse
     assert not re.search(r"""^\s*import[^\n]*["']\./browse\.js["']""", detail, re.M)
+
+
+def test_filter_picker_sorts_and_filters_its_values():
+    """The vocabulary arrives in category-walk order, which reads as random;
+    and a long one needs to be reachable by typing, not only by scrolling."""
+    picker = client.get("/ui/picker.js").text
+    # Values sorted, and the tree's children sorted per level too.
+    assert "localeCompare" in picker
+    assert picker.count("localeCompare") >= 3, "values, tree levels, saved sets"
+    # The existing "type a value" box doubles as the filter.
+    assert 'freeValue").addEventListener("input"' in picker
+    html = client.get("/ui/").text
+    assert 'placeholder="filter, or type a value"' in html

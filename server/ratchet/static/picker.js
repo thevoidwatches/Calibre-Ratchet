@@ -156,6 +156,13 @@ export const isHierarchical = colName => !NO_HIERARCHY.has(lookupOf(colName));
  *  rather than a display name, for callers that already hold the field. */
 export const fieldIsHierarchical = field => !NO_HIERARCHY.has(field);
 
+// The values of the column being picked, and whether the box above them is
+// filtering them. The saved-sets and Downloaded screens reuse this view with
+// their own content, so they turn filtering off.
+let valItems = [];
+let valHierarchical = true;
+let valFiltering = false;
+
 async function pickValue(colName) {
   state.pickingCol = colName;
   $("pickValTitle").textContent = colName;
@@ -164,7 +171,13 @@ async function pickValue(colName) {
   $("valTree").innerHTML = "loading…";
   show("pickval");
   const items = await loadCatItems(colName);
-  renderValTree(items, isHierarchical(colName));
+  if (state.pickingCol !== colName) return;   // another column opened meanwhile
+  // The vocabulary arrives in the order the category tree was walked, which
+  // is arbitrary to read; alphabetical is what anyone hunting a value wants.
+  valItems = items.slice().sort((a, b) => a.localeCompare(b));
+  valHierarchical = isHierarchical(colName);
+  valFiltering = true;
+  renderValTree();
 }
 
 /** Downloaded is device knowledge, not a calibre column: the query builder
@@ -172,6 +185,7 @@ async function pickValue(colName) {
  *  offered through the normal value screen so the Is/Not tabs apply. */
 function pickDownloaded() {
   state.pickingCol = DOWNLOADED_COL;
+  valFiltering = false;
   $("pickValTitle").textContent = DOWNLOADED_COL;
   $("freeValue").value = "";
   setMode(false);
@@ -191,13 +205,16 @@ function pickDownloaded() {
 /** Choose a saved set to drop in as a single atom. */
 function pickPreset() {
   state.pickingCol = PRESET_COL;
+  valFiltering = false;
   $("pickValTitle").textContent = PRESET_COL;
   $("freeValue").value = "";
   setMode(false);
   const box = $("valTree");
   box.innerHTML = "";
   const ul = document.createElement("ul"); ul.className = "tree";
-  for (const f of state.savedFilters || []) {
+  const sets = (state.savedFilters || []).slice()
+    .sort((a, b) => a.name.localeCompare(b.name));
+  for (const f of sets) {
     const li = document.createElement("li");
     const a = document.createElement("span");
     a.className = "node chip preset";
@@ -265,10 +282,30 @@ $("btnFreeValue").onclick = () => {
   if (v) addFilter(v);
 };
 
-function renderValTree(items, hierarchical) {
+// The same box filters the list below it and adds a value that isn't in it —
+// the arrangement the book page's editors use, so a long vocabulary is
+// reachable by typing rather than only by scrolling.
+$("freeValue").addEventListener("input", () => {
+  if (valFiltering) renderValTree();
+});
+
+function renderValTree() {
   const box = $("valTree"); box.innerHTML = "";
-  if (!items.length) { box.textContent = "no values readable — type one above"; return; }
-  if (!hierarchical) {
+  if (!valItems.length) {
+    box.textContent = "no values readable — type one above";
+    return;
+  }
+  const q = $("freeValue").value.trim().toLowerCase();
+  const items = q ? valItems.filter(v => v.toLowerCase().includes(q)) : valItems;
+  if (!items.length) {
+    box.textContent = 'nothing matches "' + $("freeValue").value.trim() +
+                      '" — the button adds it as a new value';
+    return;
+  }
+  // Flat while filtering, even for a hierarchical column: matches can come
+  // from anywhere in the tree, and their full paths say where they sit
+  // better than a half-pruned tree would.
+  if (!valHierarchical || q) {
     const ul = document.createElement("ul"); ul.className = "tree";
     for (const n of items) {
       const li = document.createElement("li");
@@ -293,13 +330,43 @@ function renderValTree(items, hierarchical) {
   }
   const build = node => {
     const ul = document.createElement("ul"); ul.className = "tree";
-    for (const [path, child] of Object.entries(node.children || {})) {
+    // Sorted per level, not just overall: a parent's children are what you
+    // are scanning once you have found the parent.
+    const children = Object.entries(node.children || {})
+      .sort(([, a], [, b]) => a.label.localeCompare(b.label));
+    for (const [path, child] of children) {
       const li = document.createElement("li");
+
       const a = document.createElement("span"); a.className = "node chip";
       a.textContent = child.label;
       a.onclick = () => addFilter(path);
       li.append(a);
-      if (child.children) li.append(build(child));
+
+      // Families start closed, so the top level is a short list to scan.
+      // A separate twist rather than wrapping the value in <summary>: the
+      // value itself has to stay a filter, and one control cannot both
+      // select and expand without one of the two needing to be cancelled.
+      let kids = null, twist = null;
+      if (child.children) {
+        twist = document.createElement("button");
+        twist.type = "button";
+        twist.className = "twist";
+        twist.textContent = "▸";
+        twist.setAttribute("aria-expanded", "false");
+        twist.setAttribute("aria-label", "show values under " + child.label);
+        li.append(twist);
+      }
+
+      if (child.children) {
+        kids = build(child);
+        kids.hidden = true;
+        twist.onclick = () => {
+          kids.hidden = !kids.hidden;
+          twist.textContent = kids.hidden ? "▸" : "▾";
+          twist.setAttribute("aria-expanded", String(!kids.hidden));
+        };
+        li.append(kids);
+      }
       ul.append(li);
     }
     return ul;
