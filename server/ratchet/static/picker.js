@@ -17,9 +17,10 @@
 //        "Space Opera" is the stored value "Science Fiction.Space Opera".
 "use strict";
 import { $, state, apiJson, err, clearErr, show, PICK_FILTER_EVENT } from "./core.js";
-import { renderFilterChips, search } from "./browse.js";
+import { renderFilterChips, search, fullQuery } from "./browse.js";
 import { wouldCycle } from "./query.js";
 import { inShell } from "./storage.js";
+import { visibleValues } from "./format.js";
 
 // Pseudo-column in the picker listing the saved sets themselves.
 const PRESET_COL = "Saved sets";
@@ -162,6 +163,51 @@ export const fieldIsHierarchical = field => !NO_HIERARCHY.has(field);
 let valItems = [];
 let valHierarchical = true;
 let valFiltering = false;
+// The subset of those values that occurs in the books the current filters
+// match, or null when the list is not narrowed: no filters are set, the
+// request failed, or the reader asked for the whole vocabulary. Narrowing is
+// a convenience — every value stays reachable through the free-text box.
+let valPresent = null;
+let valShowAll = false;
+
+/** Which of this column's values occur in the books the current filters match.
+ *  Returns null when the list should not be narrowed at all — nothing is
+ *  filtered, a value is being added as an OR alternative, or calibre could
+ *  not answer — in which case the full vocabulary is shown.
+ *
+ *  The OR case is deliberate: another alternative in an existing group is
+ *  meant to bring back books the current filters exclude, so the values worth
+ *  choosing are exactly the ones narrowing would hide. */
+async function presentValues(colName) {
+  const gi = state.pickingGroup;
+  if (gi !== null && gi !== undefined) return null;
+  const q = (await fullQuery()).trim();
+  if (!q) return null;            // nothing filtered: the results are the library
+  try {
+    const resp = await apiJson("/field-values?field=" +
+      encodeURIComponent(lookupOf(colName)) + "&q=" + encodeURIComponent(q));
+    return new Set(resp.values || []);
+  } catch (e) { return null; }
+}
+
+/** How much of the vocabulary is on screen, and the switch to the rest. */
+function renderScope() {
+  const line = $("valScope");
+  line.innerHTML = "";
+  if (!valPresent || !valFiltering) { line.hidden = true; return; }
+  line.hidden = false;
+  const here = valItems.filter(v => valPresent.has(v)).length;
+  const msg = document.createElement("span");
+  msg.textContent = valShowAll
+    ? `all ${valItems.length} values`
+    : `${here} of ${valItems.length} values are in these results`;
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "small";
+  btn.textContent = valShowAll ? "narrow to results" : "show all";
+  btn.onclick = () => { valShowAll = !valShowAll; renderValTree(); };
+  line.append(msg, btn);
+}
 
 async function pickValue(colName) {
   state.pickingCol = colName;
@@ -177,6 +223,14 @@ async function pickValue(colName) {
   valItems = items.slice().sort((a, b) => a.localeCompare(b));
   valHierarchical = isHierarchical(colName);
   valFiltering = true;
+  valPresent = null;
+  valShowAll = false;
+  renderValTree();          // the whole vocabulary, without waiting
+  // Narrowing needs a sweep of the matching books' metadata, so it lands
+  // after the tree is already usable rather than holding it back.
+  const present = await presentValues(colName);
+  if (state.pickingCol !== colName) return;
+  valPresent = present;
   renderValTree();
 }
 
@@ -186,6 +240,8 @@ async function pickValue(colName) {
 function pickDownloaded() {
   state.pickingCol = DOWNLOADED_COL;
   valFiltering = false;
+  valPresent = null;
+  $("valScope").hidden = true;
   $("pickValTitle").textContent = DOWNLOADED_COL;
   $("freeValue").value = "";
   setMode(false);
@@ -206,6 +262,8 @@ function pickDownloaded() {
 function pickPreset() {
   state.pickingCol = PRESET_COL;
   valFiltering = false;
+  valPresent = null;
+  $("valScope").hidden = true;
   $("pickValTitle").textContent = PRESET_COL;
   $("freeValue").value = "";
   setMode(false);
@@ -290,16 +348,21 @@ $("freeValue").addEventListener("input", () => {
 });
 
 function renderValTree() {
+  renderScope();
   const box = $("valTree"); box.innerHTML = "";
   if (!valItems.length) {
     box.textContent = "no values readable — type one above";
     return;
   }
-  const q = $("freeValue").value.trim().toLowerCase();
-  const items = q ? valItems.filter(v => v.toLowerCase().includes(q)) : valItems;
+  const typed = $("freeValue").value.trim();
+  const q = typed.toLowerCase();
+  const scoped = visibleValues(valItems, valPresent, valShowAll, "");
+  const items = visibleValues(valItems, valPresent, valShowAll, typed);
   if (!items.length) {
-    box.textContent = 'nothing matches "' + $("freeValue").value.trim() +
-                      '" — the button adds it as a new value';
+    box.textContent = !scoped.length
+      ? "none of this column's values appear in these results — “show all” " +
+        "lists the rest, or type one above"
+      : 'nothing matches "' + typed + '" — the button adds it as a new value';
     return;
   }
   // Flat while filtering, even for a hierarchical column: matches can come
