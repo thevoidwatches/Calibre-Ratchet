@@ -919,6 +919,7 @@ def apk() -> Response:
 def ui_config() -> dict:
     """What the embedded UI needs to render itself."""
     return {"writable_fields": cfg.calibre.writable_fields,
+            "editable_fields": cfg.calibre.editable_fields,
             "genre_field": cfg.calibre.genre_field,
             "sort_options": [{"key": o["key"], "label": o["label"]}
                              for o in SORT_OPTIONS],

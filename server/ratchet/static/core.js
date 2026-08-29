@@ -12,6 +12,7 @@ export const state = {
   library: localStorage.getItem(LIB_KEY),   // null = the server's default
   libraries: [],
   writable: [],            // fnmatch patterns from /ui-config
+  editable: [],            // ordered lookup names from /ui-config; [] = all writable
   genreField: "#genre",    // which custom column counts as "genre"
   sortOptions: [],         // [{key, label}] from /ui-config
   sort: localStorage.getItem(SORT_KEY),          // null until /ui-config answers
