@@ -1,4 +1,7 @@
 /.notes
+# undo files written by the maintenance scripts in .scripts/ —
+# library-sized metadata dumps, regenerated on every apply
+/.backups
 
 # secrets — never commit these (the .example versions are the templates)
 config.toml
