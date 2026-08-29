@@ -139,6 +139,12 @@ details.fieldset[open] > summary .fvalue { display: none; }
 .fieldset .desc p:first-child { margin-top: 0; }
 .fieldset .desc p:last-child { margin-bottom: 0; }
 
+/* How much of a column's vocabulary the value picker is showing, and the
+   switch between "only what is in these results" and the whole list. */
+.valscope { display: flex; align-items: center; gap: 8px; margin: 6px 0 2px;
+            flex-wrap: wrap; }
+.valscope[hidden] { display: none; }
+
 /* Expander beside a family in the value picker. Literal glyphs rather than
    CSS escapes — an escaped one once ended up as a control byte here. */
 .tree .twist { background: none; border: none; color: inherit; font: inherit;

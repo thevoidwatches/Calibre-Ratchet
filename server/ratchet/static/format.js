@@ -108,3 +108,19 @@ export function epubFilename(meta) {
   stem = stem.slice(0, MAX_STEM).replace(/[. ]+$/, "");
   return (stem || String(m.id ?? "book")) + ".epub";
 }
+
+
+/** Which of a column's values the filter picker should draw.
+ *
+ *  Two independent narrowings, applied in this order so the "N of M" count
+ *  above the tree describes exactly the set the tree is built from: first to
+ *  the values that occur in the books the current filters match (`present`,
+ *  or null when the list is not being narrowed), then to what has been typed.
+ *  Matching is case-insensitive and anywhere in the value, because a value
+ *  five levels down is more often remembered by its leaf than its root. */
+export function visibleValues(all, present, showAll, typed) {
+  const scoped = (present && !showAll)
+    ? (all || []).filter(v => present.has(v)) : (all || []);
+  const q = String(typed || "").trim().toLowerCase();
+  return q ? scoped.filter(v => v.toLowerCase().includes(q)) : scoped;
+}

@@ -190,16 +190,28 @@ def _backup(library_id: str, book_id: int, epub_path: str) -> str:
     return str(dest)
 
 
-def _genre_of(meta: dict) -> list[str]:
-    """The configured genre column's value, always as a list (it may be a
-    single-value column, a multi-value one, or absent entirely)."""
-    field = cfg.calibre.genre_field
+def _field_values(meta: dict, field: str) -> list[str]:
+    """One column's value(s) as a list of strings.
+
+    Custom columns ("#genre") live under user_metadata, standard ones
+    ("tags", "series") at the top level. Absent, null, single-valued and
+    multi-valued columns all normalise to a list so callers need not know
+    which kind they asked for."""
     if not field:
         return []
-    value = (meta.get("user_metadata") or {}).get(field, {}).get("#value#")
+    if field.startswith("#"):
+        value = (meta.get("user_metadata") or {}).get(field, {}).get("#value#")
+    else:
+        value = meta.get(field)
     if value is None:
         return []
-    return list(value) if isinstance(value, (list, tuple)) else [str(value)]
+    values = value if isinstance(value, (list, tuple)) else [value]
+    return [str(v) for v in values if v is not None and str(v) != ""]
+
+
+def _genre_of(meta: dict) -> list[str]:
+    """The configured genre column's value, always as a list."""
+    return _field_values(meta, cfg.calibre.genre_field)
 
 
 def _decision_payload(decision, remote: RemoteStory) -> dict:
@@ -776,6 +788,53 @@ def delete_filter(name: str, library: str | None = LIB_Q) -> dict:
 def categories(library: str | None = LIB_Q):
     """Tag-browser data (tag/custom-column vocabularies) for the chip UI."""
     return calibre.categories(_lib(library))
+
+
+# One recent metadata sweep, so paging through columns in the value picker
+# under the same filter does not re-read the library each time. Keyed on the
+# exact query and short-lived, because calibre is being edited alongside this.
+_SWEEP_TTL = 30.0
+_SWEEP_MAX = 100_000
+_sweep_cache: dict[tuple[str, str], tuple[float, dict]] = {}
+
+
+def _sweep(lib: str, query: str) -> dict:
+    """Metadata for every book matching `query`, briefly cached."""
+    key = (lib, query)
+    hit = _sweep_cache.get(key)
+    now = time.monotonic()
+    if hit and now - hit[0] < _SWEEP_TTL:
+        return hit[1]
+    ids = calibre.search(query=query, num=_SWEEP_MAX,
+                         library_id=lib).get("book_ids", [])
+    metas = calibre.books(ids, library_id=lib) if ids else {}
+    _sweep_cache.clear()          # only the newest query is worth holding
+    _sweep_cache[key] = (now, metas)
+    return metas
+
+
+@app.get("/field-values", dependencies=AUTH)
+def field_values(field: str, q: str = Query(default=""),
+                 library: str | None = LIB_Q) -> dict:
+    """Distinct values of one column across the books matching `q`.
+
+    calibre's category endpoints ignore any search restriction (verified
+    against 9.13: passing `query` or `search` changes nothing), so the value
+    picker cannot ask calibre which tags actually occur in what is currently
+    being looked at. Sweeping the matching books' metadata is the way to
+    answer it — ~1.3s for a 950-book library, and the caller treats the
+    result as an optimisation it can do without.
+    """
+    lib = _lib(library)
+    try:
+        metas = _sweep(lib, q)
+    except CalibreError as e:
+        raise HTTPException(502, str(e))
+    values: set[str] = set()
+    for meta in metas.values():
+        if meta:
+            values.update(_field_values(meta, field))
+    return {"values": sorted(values), "books": len(metas)}
 
 
 @app.get("/category-items", dependencies=AUTH)
