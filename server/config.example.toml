@@ -25,6 +25,15 @@ identifier_key = "url"     # where the FFF plugin stores story URLs (fallback on
 genre_field = "#genre"     # custom column shown beside tags in the book list
                            # ("" to show none)
 writable_fields = ["title", "tags", "rating", "#*"]   # fnmatch patterns for POST /fields
+                           # this is the permission boundary — the endpoint
+                           # refuses to write anything not matching
+editable_fields = []       # which columns the book page offers editors for, in
+                           # the order shown. Exact lookup names, not patterns.
+                           # [] = every writable text/enumeration column, with
+                           # fandom/genre/tags/reading list first. Listing a
+                           # field here does not grant permission to write it;
+                           # it still has to pass writable_fields above. e.g.
+                           # ["#fandom", "#genre", "#majchar", "tags", "#readinglist"]
 
 [fanficfare]
 binary = "fanficfare"      # leave as-is: if not on PATH (unactivated venv), Ratchet

@@ -115,13 +115,17 @@ function renderEvents(events) {
   box.append(ul);
 }
 
-// Editing order. Fandom (the Fanfiction library's column) leads when present;
-// anything writable but unlisted keeps its natural order after these. Built
-// per call, not once at module load, because the genre field arrives from
-// /ui-config after this module is evaluated.
-const fieldOrder = () => ["#fandom", state.genreField, "tags", "#readinglist"];
+// Editing order, and with calibre.editable_fields set, which columns get an
+// editor at all. Built per call rather than once at module load, because both
+// it and the genre field arrive from /ui-config after this module is
+// evaluated. The built-in list is the fallback for an unconfigured install:
+// Fandom (the Fanfiction library's column) leads, and anything writable but
+// unlisted keeps its natural order after these.
+const DEFAULT_ORDER = () => ["#fandom", state.genreField, "tags", "#readinglist"];
+const fieldOrder = () =>
+  (state.editable || []).length ? state.editable : DEFAULT_ORDER();
 
-function editableColumns(meta) {
+export function editableColumns(meta) {
   // tags is a builtin multi-value field; custom columns come from
   // user_metadata with their datatype + is_multiple flags.
   const cols = [];
@@ -142,11 +146,16 @@ function editableColumns(meta) {
                enumVals, catName: catNameFor(field)});
   }
   const order = fieldOrder();
+  // Configured explicitly: the list is the whole selection, so a writable
+  // column left out of it gets no editor. Unconfigured: the list only ranks,
+  // and everything writable is still offered.
+  const chosen = (state.editable || []).length
+    ? cols.filter(c => order.includes(c.field)) : cols;
   const rank = f => {
     const i = order.indexOf(f);
     return i === -1 ? order.length : i;
   };
-  return cols.sort((a, b) => rank(a.field) - rank(b.field));
+  return chosen.sort((a, b) => rank(a.field) - rank(b.field));
 }
 
 async function saveField(field, value) {

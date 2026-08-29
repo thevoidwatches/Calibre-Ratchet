@@ -186,6 +186,7 @@ async function boot({announce = false} = {}) {
     const uiCfg = await apiJson("/ui-config");
     state.writable = uiCfg.writable_fields || [];
     if (uiCfg.genre_field !== undefined) state.genreField = uiCfg.genre_field;
+    if (Array.isArray(uiCfg.editable_fields)) state.editable = uiCfg.editable_fields;
     initSort(uiCfg);
   } catch (e) { resetLibrarySelect(); return; }  // 401 already routed to the token view
   if (announce) play("success");   // the token was accepted

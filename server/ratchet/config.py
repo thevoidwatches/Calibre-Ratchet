@@ -89,8 +89,15 @@ class CalibreCfg:
     identifier_key: str = "url"  # FFF plugin's default identifier for the story URL
     # Custom column shown beside tags in the book list. Blank to show none.
     genre_field: str = "#genre"
-    # fnmatch patterns for fields writable via POST /books/{id}/fields
+    # fnmatch patterns for fields writable via POST /books/{id}/fields. This
+    # is the permission boundary: the endpoint refuses anything not matching.
     writable_fields: list[str] = field(default_factory=lambda: ["title", "tags", "rating", "#*"])
+    # Which columns the book page offers editors for, in the order they
+    # appear. Exact lookup names, not patterns. Empty means "every writable
+    # text/enumeration column", which is what the UI did before this existed.
+    # A field here still has to pass writable_fields to be saved, so this
+    # chooses and orders; it never grants.
+    editable_fields: list[str] = field(default_factory=list)
 
 
 @dataclass
