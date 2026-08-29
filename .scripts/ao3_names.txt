@@ -1,0 +1,478 @@
+# AO3 character tags -> the names this library uses.
+#
+# Every line is pre-filled with what the import would do. Change the
+# right-hand side to correct it, put a single '-' to drop the tag, or
+# blank it to leave the tag out for now. The fandom normally comes
+# from the book, so write the character's name on its own.
+#
+# Books filed under two fandoms are the exception: nothing says which
+# of them a character belongs to. Names the library already places
+# unambiguously are handled for you; for the rest, name the fandom
+# after an @:
+#
+#     Krosp                          = Krosp @ Girl Genius
+#
+# The heading above each block is the fandom the names under it will
+# be filed under -- not the fandom of the books they came from. An @
+# label is taken as final, whatever the book says.
+#
+# Rerunning --review keeps every line already here and only appends
+# tags it has not seen, so nothing decided is ever overwritten.
+
+# ==== matched a name already in the library (322) =========
+# check for a wrong person; otherwise nothing to do
+
+#   Castlevania
+Adrian Tepes | Alucard                              = Alucard
+Sypha Belnades                                      = Sypha Belnades
+Trevor Belmont                                      = Trevor Belmont
+
+#   DC Comics
+Ace the Bat-Hound                                   = Ace the Bat-Hound
+Alfred Pennyworth                                   = Alfred Pennyworth
+Alfred the Cat (DCU)                                = Alfred the Cat
+Billy Batson                                        = Billy Batson
+Bruce Wayne                                         = Bruce Wayne
+Clark Kent                                          = Clark Kent
+Damian Wayne                                        = Damian Wayne
+Dick Grayson                                        = Dick Grayson
+Donna Troy                                          = Donna Troy
+Harleen Quinzel                                     = Harleen Quinzel
+Harley Quinn                                        = Harley Quinn
+Jason Todd                                          = Jason Todd
+Kathy Branden                                       = Kathy Branden
+Koriand'r                                           = Koriand'r
+Leslie Thompkins                                    = Leslie Thompkins
+Lois Lane                                           = Lois Lane
+Pamela Isley                                        = Pamela Isley
+Roy Harper                                          = Roy Harper
+Selina Kyle                                         = Selina Kyle
+Talia al Ghul                                       = Talia al Ghul
+Tim Drake                                           = Tim Drake
+
+#   Discworld
+Adrian Turnipseed                                   = Adrian Turnipseed @ Discworld
+Death (Discworld)                                   = Death @ Discworld
+Detritus (Discworld)                                = Detritus
+Fred Colon                                          = Fred Colon @ Discworld
+Gaspode (Discworld)                                 = Gaspode @ Discworld
+Havelock Vetinari                                   = Havelock Vetinari
+Hex (Discworld)                                     = Hex @ Discworld
+Igor                                                = Igor
+Lady Sybil                                          = Lady Sybil
+Mustrum Ridcully                                    = Mustrum Ridcully @ Discworld
+Nac Mac Feegle                                      = Nac Mac Feegle @ Discworld
+Nobby Nobbs                                         = Nobby Nobbs
+Ponder Stibbons                                     = Ponder Stibbons @ Discworld
+Rufus Drumknott                                     = Rufus Drumknott @ Discworld
+Samuel Vimes                                        = Samuel Vimes
+The Librarian (Discworld)                           = The Librarian @ Discworld
+Tiffany Aching                                      = Tiffany Aching @ Discworld
+Young Sam Vimes                                     = Young Sam Vimes
+
+#   Dresden Files
+Maeve (Lady of Winter)                              = Maeve @ Dresden Files
+
+#   Fullmetal Alchemist
+Alphonse Elric                                      = Alphonse Elric
+Edward Elric                                        = Edward Elric
+Jean Havoc                                          = Jean Havoc @ Fullmetal Alchemist
+Maes Hughes                                         = Maes Hughes @ Fullmetal Alchemist
+Mei Chan | May Chang                                = Mei Chan @ Fullmetal Alchemist
+Riza Hawkeye                                        = Riza Hawkeye
+Roy Mustang                                         = Roy Mustang
+
+#   Girl Genius
+Adam Clay | Punch                                   = Adam Clay
+Agatha Heterodyne                                   = Agatha Heterodyne @ Girl Genius
+Anevka Sturmvoraus                                  = Anevka Sturmvoraus
+Ardsley Wooster                                     = Ardsley Wooster @ Girl Genius
+Arella von Mekkhan                                  = Arella von Mekkhan
+Barry Heterodyne                                    = Barry Heterodyne
+Carson von Mekkhan                                  = Carson von Mekkhan
+Castle Heterodyne                                   = Castle Heterodyne
+Dimo (Girl Genius)                                  = Dimo @ Girl Genius
+Gilgamesh Wulfenbach                                = Gilgamesh Wulfenbach
+Jagermonsters                                       = Jagermonsters
+Jenka (Girl Genius)                                 = Jenka
+Klaus Wulfenbach                                    = Klaus Wulfenbach
+Krosp                                               = Krosp @ Girl Genius
+Lilith Clay | Judy                                  = Lilith Clay
+Mamma Gkika                                         = Mamma Gkika
+Maxim (Girl Genius)                                 = Maxim
+Maxim (Jager)                                       = Maxim
+Oggie (Girl Genius)                                 = Oggie
+Otilia                                              = Otilia
+Silas Merlot                                        = Silas Merlot
+Tarsus Beetle                                       = Tarsus Beetle
+Tarvek Sturmvoraus                                  = Tarvek Sturmvoraus
+Vanamonde von Mekkhan                               = Vanamonde von Mekkhan
+Violetta (Girl Genius)                              = Violetta @ Girl Genius
+Von Pinn (Girl Genius)                              = Von Pinn
+Vrin (Girl Genius)                                  = Vrin
+
+#   Harry Potter
+Aberforth Dumbledore                                = Aberforth Dumbledore @ Harry Potter
+Alastor “Mad-Eye” Moody                             = Alastor “Mad-Eye” Moody @ Harry Potter
+Albus Dumbledore                                    = Albus Dumbledore
+Amelia Bones                                        = Amelia Bones
+Bill Weasley                                        = Bill Weasley @ Harry Potter
+Draco Malfoy                                        = Draco Malfoy
+Dudley Dursley                                      = Dudley Dursley @ Harry Potter
+Ginny Weasley                                       = Ginny Weasley
+Harry Potter                                        = Harry Potter
+Hermione Granger                                    = Hermione Granger
+Kreacher (Harry Potter)                             = Kreacher @ Harry Potter
+Remus Lupin                                         = Remus Lupin
+Ron Weasley                                         = Ron Weasley
+Sirius Black                                        = Sirius Black
+The Dursleys                                        = The Dursleys @ Harry Potter
+
+#   Hellsing
+Alucard (Hellsing)                                  = Alucard
+Integra Hellsing                                    = Integra Hellsing
+Pip Bernadotte                                      = Pip Bernadotte
+Seras Victoria                                      = Seras Victoria
+Walter Dornez                                       = Walter Dornez
+
+#   Jonathan Strange and Mr. Norrell
+Arabella Strange                                    = Arabella Strange
+Christopher Drawlight                               = Christopher Drawlight
+Davey (Jonathan Strange & Mr. Norrell)              = Davey
+Gilbert Norrell                                     = Gilbert Norrell
+Henry Lascelles                                     = Henry Lascelles
+John Childermass                                    = John Childermass
+Jonathan Strange                                    = Jonathan Strange
+The Lady of the Castle of the Plucked Eye and Heart = The Lady of the Castle of the Plucked Eye and Heart
+
+#   Leverage
+Alec Hardison                                       = Alec Hardison
+Amy Palavi                                          = Amy Palavi
+Eliot Spencer                                       = Eliot Spencer
+Eliot Spencer (Leverage)                            = Eliot Spencer
+Molly Connell                                       = Molly Connell
+Nate Ford                                           = Nate Ford
+Nathan Ford                                         = Nathan Ford
+Parker                                              = Parker
+Parker (Leverage)                                   = Parker
+Sophie Devereaux                                    = Sophie Devereaux
+Sophie Devereaux (Leverage)                         = Sophie Devereaux
+
+#   Marvel Comics
+Ancient One (Marvel)                                = Ancient One
+Barney Barton                                       = Barney Barton
+Brigid O'Reilly                                     = Brigid O'Reilly
+Bruce Banner                                        = Bruce Banner
+Carol Danvers                                       = Carol Danvers
+Claire Temple                                       = Claire Temple
+Clint Barton                                        = Clint Barton
+Cooper Barton                                       = Cooper Barton
+Darcy Lewis                                         = Darcy Lewis
+Drax the Destroyer                                  = Drax the Destroyer
+En Dwi Gast | Grandmaster                           = En Dwi Gast
+Fandral (Marvel)                                    = Fandral
+Father Lantom (Marvel)                              = Father Lantom
+Flash Thompson                                      = Flash Thompson @ Marvel Comics
+Friday                                              = Friday
+Frigga (Marvel)                                     = Frigga
+Gamora (Marvel)                                     = Gamora
+Groot (Marvel)                                      = Groot
+Happy Hogan                                         = Happy Hogan
+Hela (Marvel)                                       = Hela
+Hogun (Marvel)                                      = Hogun
+James Wesley                                        = James Wesley
+Jane Foster                                         = Jane Foster
+Jane Foster (Marvel)                                = Jane Foster
+Jennifer Walters                                    = Jennifer Walters
+Jessica Jones                                       = Jessica Jones
+Karen Page                                          = Karen Page
+Karl Mordo                                          = Karl Mordo
+Kate Bishop                                         = Kate Bishop
+Lady Sif                                            = Lady Sif
+Laura Barton                                        = Laura Barton
+Lester | Bullseye                                   = Lester
+Lila Barton                                         = Lila Barton
+Loki                                                = Loki
+Loki (Marvel)                                       = Loki
+Luke Cage (mentioned)                               = Luke Cage
+Madame Gao (Marvel)                                 = Madame Gao
+Malcolm Ducasse                                     = Malcolm Ducasse
+Matt Murdock                                        = Matt Murdock
+Mattie Franklin                                     = Mattie Franklin
+Maya Lopez                                          = Maya Lopez
+Melvin Potter                                       = Melvin Potter
+Michelle Jones                                      = Michelle Jones
+Natasha Romanov                                     = Natasha Romanov
+Natasha Romanov (Marvel)                            = Natasha Romanov
+Nathaniel Pietro Barton                             = Nathaniel Pietro Barton
+Ned Leeds                                           = Ned Leeds
+Odin (Marvel)                                       = Odin
+Peggy Carter                                        = Peggy Carter
+Pepper Potts                                        = Pepper Potts
+Peter Parker                                        = Peter Parker
+Peter Quill                                         = Peter Quill
+Phil Coulson                                        = Phil Coulson
+Pietro Maximoff                                     = Pietro Maximoff
+Rocket Raccoon                                      = Rocket Raccoon
+Sam Wilson                                          = Sam Wilson
+Sam Wilson (Marvel)                                 = Sam Wilson
+Santino                                             = Santino
+Santino (Daredevil)                                 = Santino
+Scott Lang                                          = Scott Lang
+Shuri (Marvel)                                      = Shuri
+Silvio Manfredi                                     = Silvio Manfredi
+Stephen Strange                                     = Stephen Strange
+Steve Rogers                                        = Steve Rogers
+T'Challa (Marvel)                                   = T'Challa
+Tandy Bowen                                         = Tandy Bowen
+Thanos (Marvel)                                     = Thanos
+Thor (Marvel)                                       = Thor
+Tracksuit Mafia                                     = Tracksuit Mafia
+Tyrone Johnson                                      = Tyrone Johnson
+Ultron (Marvel)                                     = Ultron
+Vanessa Marianna                                    = Vanessa Marianna
+Vision (Marvel)                                     = Vision
+Volstagg (Marvel)                                   = Volstagg
+Wanda Maximoff                                      = Wanda Maximoff
+Wilson Fisk                                         = Wilson Fisk
+Wong                                                = Wong
+Yondu Udonta                                        = Yondu Udonta
+
+#   Miraculous
+Adrien Agreste                                      = Adrien Agreste
+Adrien Agreste | Chat Noir                          = Adrien Agreste
+Adrien | Chat Noir                                  = Adrien Agreste
+Alix Kubdel                                         = Alix Kubdel
+Alya Césaire                                        = Alya Cesaire
+André Bourgeois                                     = Andre Bourgeois
+Aurore Borell                                       = Aurore Borell
+Caline Bustier                                      = Caline Bustier
+Chat Noir                                           = Chat Noir
+Chat Noir (Miraculous Ladybug)                      = Chat Noir
+Chloé Bourgeois                                     = Chloe Bourgeois
+Emilie Agreste                                      = Emilie Agreste
+Gabriel Agreste                                     = Gabriel Agreste
+Ivan Bruel                                          = Ivan Bruel
+Jean Duparc                                         = Jean Duparc
+Juleka Couffaine                                    = Juleka Couffaine
+Lila Rossi                                          = Lila Rossi
+Marinette Cheng | Ladybug                           = Marinette Cheng
+Marinette Dupain-Cheng                              = Marinette Dupain-Cheng
+Marinette Dupain-Cheng | Ladybug                    = Marinette Dupain-Cheng
+Master Fu (Miraculous Ladybug)                      = Master Fu
+Max Kanté                                           = Max Kanté
+Mylène Haprèle                                      = Mylene Haprèle
+Nadja Chamack                                       = Nadja Chamack
+Nathalie Sancoeur                                   = Nathalie Sancoeur
+Nathanaël Kurtzberg                                 = Nathanael Kurtzberg
+Nino Lahiffe                                        = Nino Lahiffe
+Nooroo (Miraculous Ladybug)                         = Nooroo
+Papillon | Hawk Moth                                = Papillon
+Plagg                                               = Plagg
+Plagg (Miraculous Ladybug)                          = Plagg
+Queen Bee (Miraculous Ladybug)                      = Queen Bee
+Rose Lavillant                                      = Rose Lavillant
+Sabine Cheng                                        = Sabine Cheng
+Sabrina Raincomprix                                 = Sabrina Raincomprix
+Tikki (Miraculous Ladybug)                          = Tikki
+Tom Dupain                                          = Tom Dupain
+Vixen                                               = Vixen
+Wayzz (Miraculous Ladybug)                          = Wayzz
+
+#   My Hero Academia
+Aiba Manami | La Brava                              = La Brava
+Aizawa Shouta | Eraserhead                          = Shouta Aizawa
+Akaguro Chizome | Stain                             = Akaguro Chizome
+Aoyama Yuuga                                        = Aoyama Yuuga
+Ashido Mina                                         = Mina Ashido
+Asui Tsuyu                                          = Asui Tsuyu
+Bakugou Katsuki                                     = Katsuki Bakugo
+Eri (My Hero Academia)                              = Eri
+Gran Torino (My Hero Academia)                      = Gran Torino
+Hagakure Tooru                                      = Hagakure Tooru
+Hatsume Mei                                         = Mei Hatsume
+Iida Tenya                                          = Iida Tenya
+Jirou Kyouka                                        = Kyoka Jiro
+Kaminari Denki                                      = Kaminari Denki
+Kan Sekijirou | Vlad King                           = Sekijirou Kan
+Kayama Nemuri | Midnight                            = Nemuri Kayama
+Kendou Itsuka                                       = Kendou Itsuka
+Kirishima Eijirou                                   = Eijiro Kirishima
+Kouda Kouji                                         = Kouda Kouji
+Kurogiri (My Hero Academia)                         = Kurogiri
+Midoriya Hisashi                                    = Hisashi Midoriya
+Midoriya Inko                                       = Inko Midoriya
+Midoriya Izuku                                      = Izuku Midoriya
+Ojiro Mashirao                                      = Ojiro Mashirao
+Satou Rikidou                                       = Satou Rikidou
+Sensei | All For One                                = All For One
+Sero Hanta                                          = Sero Hanta
+Shimura Nana                                        = Shimura Nana
+Shinsou Hitoshi                                     = Hitoshi Shinsou
+Shouji Mezou                                        = Shouji Mezou
+Shuuzenji Chiyo | Recovery Girl                     = Shuuzenji Chiyo
+Takami Keigo | Hawks                                = Takami Keigo
+Tobita Danjuurou | Gentle Criminal                  = Tobita Danjuurou
+Todoroki Enji | Endeavor                            = Enji Todoroki
+Todoroki Fuyumi                                     = Fuyumi Todoroki
+Todoroki Natsuo                                     = Natsuo Todoroki
+Todoroki Shouto                                     = Shoto Todoroki
+Todoroki Touya                                      = Toya Todoroki
+Toga Himiko                                         = Himiko Toga
+Tokage Setsuna                                      = Setsuna Tokage
+Tokoyami Fumikage                                   = Fumikage Tokoyami
+Tsukauchi Naomasa                                   = Tsukauchi Naomasa
+Uraraka Ochako                                      = Ochako Uraraka
+Yagi Toshinori | All Might                          = Toshinori Yagi
+Yamada Hizashi | Present Mic                        = Hizashi Yamada
+Yaoyorozu Momo                                      = Momo Yaoyorozu
+
+#   Sherlock
+Greg Lestrade                                       = Greg Lestrade @ Sherlock
+John Watson                                         = John Watson
+Sally Donovan                                       = Sally Donovan @ Sherlock
+Sherlock Holmes                                     = Sherlock Holmes
+
+#   Star Wars
+Bant Eerin                                          = Bant Eerin
+Bruck Chun                                          = Bruck Chun
+Cin Drallig                                         = Cin Drallig
+Count Dooku                                         = Count Dooku
+Darth Maul                                          = Darth Maul
+Darth Vader                                         = Darth Vader
+Depa Billaba                                        = Depa Billaba
+Dooku (Star Wars)                                   = Dooku
+Feemor (Star Wars)                                  = Feemor
+Garen Muln                                          = Garen Muln
+Jango Fett                                          = Jango Fett
+Komari Vosa                                         = Komari Vosa
+Ky Narec                                            = Ky Narec
+Luke Skywalker                                      = Luke Skywalker
+Mace Windu                                          = Mace Windu
+Master Kant                                         = Master Kant
+Obi-Wan Kenobi                                      = Obi-Wan Kenobi
+Qui-Gon Jinn                                        = Qui-Gon Jinn
+Quinlan Vos                                         = Quinlan Vos
+Rael Averross                                       = Rael Averross
+Reeft (Star Wars)                                   = Reeft
+Siri Tachi                                          = Siri Tachi
+Tarre Vizsla                                        = Tarre Vizsla
+Vokara Che                                          = Vokara Che
+Xanatos (Star Wars)                                 = Xanatos
+Yoda (Star Wars)                                    = Yoda
+
+#   Worm
+Brian Laborn (Worm)                                 = Brian Laborn
+Colin Wallis | Armsmaster | Defiant                 = Colin Wallis
+Danny Hebert                                        = Danny Hebert
+Danny Hebert (Worm)                                 = Danny Hebert
+Jack Slash                                          = Jack Slash
+Jacob (Worm)                                        = Jacob
+Lisa Wilbourn (Worm)                                = Lisa Wilbourn
+Robin Swoyer | Velocity                             = Robin Swoyer
+Sveta (Worm)                                        = Sveta
+Taylor Hebert                                       = Taylor Hebert
+Taylor Hebert (Worm)                                = Taylor Hebert
+Taylor Hebert | Skitter                             = Taylor Hebert
+Taylor Hebert | Skitter | Weaver                    = Taylor Hebert
+
+# ==== look like a short form of a known name -- CHECK THESE (11) 
+# the tag gave a partial name and exactly one library name in the
+# same fandom fits. Most useful section to read.
+
+#   DC Comics
+Diana (Wonder Woman)                                = Diana Prince
+
+#   Miraculous
+Alya                                                = Alya Cesaire
+Alya (Miraculous Ladybug)                           = Alya Cesaire
+Ivan (Miraculous Ladybug)                           = Ivan Bruel
+Juleka (Miraculous Ladybug)                         = Juleka Couffaine
+Kim (Miraculous Ladybug)                            = Kim le Chien
+Nathanaël (Miraculous Ladybug)                      = Nathanael Kurtzberg
+Nino                                                = Nino Lahiffe
+Nino (Miraculous Ladybug)                           = Nino Lahiffe
+Rose (Miraculous Ladybug)                           = Rose Lavillant
+Sabrina (Miraculous Ladybug)                        = Sabrina Raincomprix
+
+# ==== look like a group rather than a person (9) ========
+# pre-set to '-' (dropped). Put a name back if one is really a person.
+
+#   (dropped)
+Ant Family                                          = -
+Background & Cameo Characters                       = -
+Classmates (Miraculous Ladybug)                     = -
+Original Character                                  = -
+Original Characters                                 = -
+Original Female Character(s)                        = -
+Original Female Character(s) of Color               = -
+Reader                                              = -
+original miraculous wielders                        = -
+
+# ==== only on crossovers -- NAME THE FANDOM AFTER THE @ (1) 
+# these books are filed under two fandoms and the library cannot
+# place these names on its own, so they are dropped unless you
+# finish the line: 'Krosp = Krosp @ Girl Genius'. Leaving the @
+# empty skips the tag, which is a fine answer too.
+
+#   choose: Girl Genius / Marvel Comics, choose: Marvel Comics, choose: Marvel Comics / Miraculous
+Tony Stark                                          = Tony Stark @ 
+
+# ==== new characters, kept under their own name (31) =====
+# not in the library yet; the author tagged them, so they come in
+# as-is. Hero names needing an alias will be in here -- e.g. set
+# Chat Noir to Adrien Agreste rather than letting it stand alone.
+
+#   (dropped)
+"Macho Man" Randy Savage                            = -
+Absolutely Everyone - Character                     = -
+Class 1-A (My Hero Academia)                        = -
+Past One For All Users (My Hero Academia)           = -
+most of the oneshot villains get cameos             = -
+the usual suspect classmates                        = -
+the vaguest mention of                              = -
+
+#   DC Comics
+Jonathan Samuel Kent                                = Jon Kent
+
+#   Discworld
+Sergeant Angua                                      = Angua von Uberwald
+Sergeant Colon                                      = Fred Colon
+
+#   Dresden Files
+Harry Blackstone Copperfield Dresden                = Harry Dresden @ Dresden Files
+
+#   Girl Genius
+Jagers - Character                                  = Jagermonsters
+Zeetha Daughter of Chump                            = Zeetha @ Girl Genius
+
+#   Harry Potter
+Narcissa Black Malfoy                               = Narcissa Malfoy
+
+#   Marvel Comics
+Franklin "Foggy" Nelson                             = Foggy Nelson
+James "Bucky" Barnes                                = Bucky Barnes
+James "Rhodey" Rhodes                               = Rhodey
+Patricia "Trish" Walker                             = Trish Walker
+
+#   Miraculous
+Fox!Alya                                            = Alya Cesaire
+Hawk Moth | Le Papillon                             = Gabriel Agreste
+Ladybug                                             = Marinette Dupain-Cheng
+Ladybug (Miraculous Ladybug)                        = Marinette Dupain-Cheng
+Lê Chiến Kim                                        = Kim le Chien
+Mrs. Agreste (Miraculous Ladybug)                   = Emilie Agreste
+Nathanael Kurtzburg                                 = Nathanael Kurtzberg
+Nathaniel Kurtzberg                                 = Nathanael Kurtzberg
+Volpina (Miraculous Ladybug)                        = Lila Rossi
+
+#   My Hero Academia
+Nedzu (My Hero Academia)                            = Nezu
+
+#   Star Wars
+Myles the Mandalorian (Star Wars)                   = Myles
+Silas the Mandalorian (Star Wars)                   = Silas
+
+#   Worm
+Weaver                                              = Taylor Hebert
+
