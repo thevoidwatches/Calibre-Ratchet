@@ -77,11 +77,22 @@ def test_leaving_it_unset_costs_the_listing_nothing(monkeypatch):
     assert r.json()["books"][0]["row_values"] == []
 
 
-def test_the_two_spans_are_separate_so_each_keeps_its_own_format():
-    """The series is italic and small; the configured column is set in the
-    title's own face, so they cannot share one span."""
+def test_it_looks_the_same_as_the_series_it_stands_in_for():
+    """One place, one look, whichever of the two is filling it — so the pair
+    share a rule rather than drifting apart."""
     css = client.get("/ui/ui.css").text
-    assert ".list li .titlerow .rowfield" in css
+    shared = css.split(".list li .titlerow .ser,")[1].split("}")[0]
+    assert "font-style: italic" in shared and "font-size: 0.85rem" in shared
+    assert ".list li .titlerow .rowfield" in shared
+    # Still its own span: only one of the two is ever filled, and each
+    # collapses when empty so the row gains no gap.
     assert ".list li .titlerow .rowfield:empty { display: none; }" in css
     browse = client.get("/ui/browse.js").text
     assert 'querySelector(".rowfield").textContent = rowFieldLabel(b)' in browse
+
+
+def test_a_long_value_gives_way_to_the_title():
+    """A series name is short; a multi-valued column need not be."""
+    css = client.get("/ui/ui.css").text
+    own = css.split(".list li .titlerow .rowfield { flex: 0 1 auto;")[1].split("}")[0]
+    assert "text-overflow: ellipsis" in own
