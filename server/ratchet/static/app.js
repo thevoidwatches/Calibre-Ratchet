@@ -1,13 +1,13 @@
 // Entry point: nav wiring, token handling, boot.
 "use strict";
-import { $, state, setToken, setLibrary, setSort, apiJson, clearErr, show } from "./core.js";
+import { $, state, setToken, setLibrary, setSort, apiJson, clearErr, show, ROOT_ENTRY, viewBehind, viewNow} from "./core.js";
 import { renderFilterChips, renderFilterBar, search, queueAdd, firstUrl } from "./browse.js";
 import "./picker.js";     // side effect: filter-picker button handlers
 import "./actions.js";    // side effect: check/update/epub button handlers
 import { initSfx, play } from "./sfx.js";
 import { initTheme } from "./theme.js";
 import { initFilters, loadSavedFilters } from "./filters.js";
-import { openBook } from "./detail.js";
+import { openBook, closeCover } from "./detail.js";
 import { ensureStorage, initStorage, inShell, openExternal,
          consumeSharedText, installedAt } from "./storage.js";
 import { refreshCatalog } from "./catalog.js";
@@ -18,8 +18,25 @@ document.querySelectorAll("[data-nav]").forEach(b =>
   b.addEventListener("click", () => history.back()));
 
 const POP_VIEWS = new Set(["browse", "pickcol", "detail", "token"]);
+
+// One entry below everything, put in before any view records itself. Reaching
+// it means the back button has run out of app to walk through, which is where
+// the shell would otherwise close.
+if (history.state === null) history.replaceState({view: ROOT_ENTRY}, "");
+
 window.addEventListener("popstate", e => {
-  const st = e.state || {view: "browse"};
+  // The cover overlay is the shallowest thing on screen: back dismisses it
+  // and stops there, leaving the book page as it was.
+  if (closeCover()) return;
+  const st = e.state || {view: ROOT_ENTRY};
+  if (st.view === ROOT_ENTRY) {
+    const behind = viewBehind(viewNow());
+    // Nothing behind the login screen: step back again and let the app close,
+    // which is what the second press of back is asking for.
+    if (behind === null) { history.back(); return; }
+    show(behind);          // pushes, so there is something to pop next time
+    return;
+  }
   if (st.view === "detail" && st.bookId) { openBook(st.bookId, false); return; }
   // A pickval entry reopens as the column list: the value screen only means
   // something for the column that was being picked at the time.
