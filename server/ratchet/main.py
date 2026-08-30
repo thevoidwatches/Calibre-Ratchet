@@ -19,7 +19,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from fastapi import Body, Depends, FastAPI, Header, HTTPException, Query
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import epub as epub_mod
@@ -409,17 +409,54 @@ def book_detail(book_id: int, library: str | None = LIB_Q) -> dict:
     }
 
 
+# Proxy chunk size. Each chunk is one threadpool hop, so bigger is cheaper;
+# 1 MB keeps that noise on an 800 MB comic while memory stays flat.
+_EPUB_CHUNK = 1 << 20
+
+
 @app.get("/books/{book_id}/epub", dependencies=AUTH)
-def get_epub(book_id: int, library: str | None = LIB_Q) -> Response:
+def get_epub(book_id: int, library: str | None = LIB_Q) -> StreamingResponse:
+    """The epub, streamed straight through from calibre.
+
+    Streamed rather than buffered because an epub can run to hundreds of MB
+    (comics): the phone starts receiving at once and this machine never holds
+    the whole file. Content-Length is passed on so the phone can show progress
+    and notice a short body. The log line is written once the body has gone
+    out — or as far as it got — so it can be trusted when a download is being
+    diagnosed.
+    """
     lib = _lib(library)
     try:
-        data = calibre.download_format(book_id, "EPUB", lib)
+        src = calibre.open_format(book_id, "EPUB", lib)
     except CalibreError as e:
         raise HTTPException(404, str(e))
-    log.info("epub: book %s (%s) sent (%.1f MB)",
-             book_id, _libname(lib), len(data) / 1e6)
-    return Response(content=data, media_type="application/epub+zip", headers={
-        "Content-Disposition": f'attachment; filename="{book_id}.epub"'})
+    total = int(src.headers.get("content-length") or 0)
+
+    def body():
+        sent, started = 0, time.monotonic()
+        try:
+            for chunk in src.iter_bytes(_EPUB_CHUNK):
+                sent += len(chunk)
+                yield chunk
+        finally:
+            # Also reached when the client goes away mid-body: the response
+            # is closed then, and the generator with it.
+            src.close()
+            secs = time.monotonic() - started
+            rate = sent / 1e6 / secs if secs else 0.0
+            if total and sent < total:
+                log.warning("epub: book %s (%s) cut off at %.1f of %.1f MB after "
+                            "%.1fs (%.1f MB/s)", book_id, _libname(lib),
+                            sent / 1e6, total / 1e6, secs, rate)
+            else:
+                log.info("epub: book %s (%s) sent (%.1f MB in %.1fs, %.1f MB/s)",
+                         book_id, _libname(lib), sent / 1e6, secs, rate)
+
+    headers = {"Content-Disposition": f'attachment; filename="{book_id}.epub"'}
+    if total:
+        headers["Content-Length"] = str(total)
+    return StreamingResponse(body(), media_type="application/epub+zip",
+                             headers=headers)
 
 
 @app.get("/books/{book_id}/cover", dependencies=AUTH)

@@ -199,7 +199,7 @@ via `npx @capacitor/assets generate --android` (sources derive from
 | GET | `/libraries` | every library on the content server |
 | GET | `/books?q=&num=&offset=` | search (full calibre search syntax) |
 | GET | `/books/{id}` | calibre metadata + sidecar snapshot + recent events |
-| GET | `/books/{id}/epub` | download the epub (for Moon+) |
+| GET | `/books/{id}/epub` | the epub, streamed through from calibre (for Moon+) |
 | POST | `/books/{id}/check` | pre-flight only: diff local vs site, no writes |
 | POST | `/books/{id}/update?dry_run=` | the full safe update flow |
 | POST | `/books/{id}/fields` | `{"changes": {"tags": [...], "#genre": "..."}}` |

@@ -100,6 +100,11 @@ input, select { font: inherit; border: 2px solid var(--fg); border-radius: 6px;
 
 .warn { border: 3px solid var(--fg); background: var(--shade-2); padding: 10px;
         margin: 10px 0; font-weight: bold; }
+/* The busy box: one line per thing in flight, a download's bar under its
+   line once the total is known. */
+.busyline + .busyline { margin-top: 8px; }
+.busyline progress { display: block; width: 100%; height: 8px; margin-top: 6px;
+                     accent-color: var(--fg); }
 .box { border: 1px solid var(--fg); border-radius: 6px; padding: 10px;
        margin: 10px 0; }
 .fieldset { border: 1px solid var(--fg); border-radius: 6px; padding: 8px 10px;

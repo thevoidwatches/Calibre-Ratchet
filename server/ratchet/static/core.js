@@ -64,6 +64,13 @@ function withLibrary(path) {
          "library=" + encodeURIComponent(state.library);
 }
 
+/** The absolute address of an API path, library appended as api() would.
+ *  For the shell's native download, which fetches outside the page and so
+ *  cannot use a relative path. */
+export function apiUrl(path) {
+  return new URL(withLibrary(path), location.href).href;
+}
+
 // Fired whenever the server rejects our token. sfx.js imports this module, so
 // core.js announces the rejection rather than calling play() and making the
 // two circular.

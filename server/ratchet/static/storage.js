@@ -10,7 +10,7 @@
 // checks for and requests; folder creation itself goes through the stock
 // Filesystem plugin. In a plain browser every export here is an inert no-op.
 "use strict";
-import { $, api, state } from "./core.js";
+import { $, apiUrl, state } from "./core.js";
 import { epubFilename } from "./format.js";
 import { removeBook, upsertBook } from "./catalog.js";
 
@@ -125,27 +125,49 @@ export async function statBook(meta) {
   } catch (e) { return null; }
 }
 
-function blobToBase64(blob) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onerror = () => reject(r.error);
-    r.onload = () => resolve(String(r.result).split(",", 2)[1]);
-    r.readAsDataURL(blob);
-  });
-}
+// A download lands under this name and is renamed into place once complete,
+// so one that dies halfway (VPN dropped, phone slept) never leaves a
+// truncated epub where Read — and Moon+ — would take it for the real thing.
+const PART_SUFFIX = ".part";
 
 /** Download the epub from the server and write it over the device copy —
- *  same path every time, so Moon+ keeps its reading position. */
-export async function saveBookToDevice(meta) {
+ *  same path every time, so Moon+ keeps its reading position.
+ *
+ *  The plugin's own download streams the response straight to disk. The old
+ *  route (fetch, then writeFile with a base64 string) held the file in the
+ *  WebView several times over — blob, data URL, bridge message — and an
+ *  800 MB comic had Android killing the VPN to make room for it. When
+ *  `onProgress` is given it is called with (bytes, total) as the file
+ *  arrives; total is 0 if the server did not say. */
+export async function saveBookToDevice(meta, onProgress) {
+  const fs = plugins().Filesystem;
   // The calibre metadata object has no plain .id; the open book's id lives in
   // shared state.
-  const blob = await (await api("/books/" + state.bookId + "/epub")).blob();
-  await plugins().Filesystem.writeFile({
-    path: devicePath(meta),
-    directory: "EXTERNAL_STORAGE",
-    data: await blobToBase64(blob),
-    recursive: true,
+  const url = apiUrl("/books/" + state.bookId + "/epub");
+  const path = devicePath(meta);
+  const part = path + PART_SUFFIX;
+  // Progress events are per plugin, not per call; the url tells them apart.
+  const listener = onProgress && await fs.addListener("progress", ev => {
+    if (ev.url === url)
+      onProgress(Number(ev.bytes) || 0, Number(ev.contentLength) || 0);
   });
+  try {
+    await fs.downloadFile({
+      url, path: part, directory: "EXTERNAL_STORAGE",
+      headers: {"X-Api-Token": state.token}, progress: !!onProgress,
+    });
+    if (await statBook(meta))
+      await fs.deleteFile({path, directory: "EXTERNAL_STORAGE"});
+    await fs.rename({from: part, to: path, directory: "EXTERNAL_STORAGE"});
+  } catch (e) {
+    // Best effort: a leftover .part is only clutter, but clutter a file
+    // manager would show.
+    try { await fs.deleteFile({path: part, directory: "EXTERNAL_STORAGE"}); }
+    catch (e2) { /* nothing was written */ }
+    throw e;
+  } finally {
+    if (listener) listener.remove();
+  }
   // The offline catalog mirrors what is on the device; it must never be the
   // reason a download counts as failed.
   try { await upsertBook(meta); } catch (e) { /* best-effort */ }
