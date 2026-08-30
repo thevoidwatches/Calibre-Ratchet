@@ -28,8 +28,9 @@ const PRESET_COL = "Saved sets";
 // no device catalog to check against).
 const DOWNLOADED_COL = "Downloaded";
 
-// Columns where "." in a value is punctuation, not hierarchy (author names
-// like "R.A. Scott", series with dotted titles).
+// Fallback for when calibre will not say which columns it nests (see
+// loadCats): columns where "." in a value is most likely punctuation rather
+// than depth — author names like "R.A. Scott", dotted series titles.
 const NO_HIERARCHY = new Set(["authors", "series", "publisher", "formats",
                               "identifiers", "languages", "news", "rating"]);
 
@@ -60,8 +61,15 @@ function parseCategories(resp) {
 
 export async function loadCats() {
   if (state.cats) return state.cats;
-  try { state.cats = parseCategories(await apiJson("/categories")); }
-  catch (e) { state.cats = {}; }
+  try {
+    const resp = await apiJson("/categories");
+    state.cats = parseCategories(resp);
+    // Which columns nest is calibre's own per-library setting, not something
+    // to infer from the field: the reader decides in calibre that Series is
+    // a hierarchy, and the picker should offer the same tree calibre does.
+    state.hierarchical = Array.isArray(resp && resp.hierarchical)
+      ? new Set(resp.hierarchical) : null;
+  } catch (e) { state.cats = {}; state.hierarchical = null; }
   return state.cats;
 }
 
@@ -151,11 +159,15 @@ export function lookupOf(colName) {
   return (cat && cat.lookup) || colName.toLowerCase();
 }
 
-export const isHierarchical = colName => !NO_HIERARCHY.has(lookupOf(colName));
+/** Whether a column's values are dotted paths — asked with a calibre lookup
+ *  name ("#genre", "series"). calibre's own answer when it gave one; the
+ *  guess above only when it did not, so a library where Series is a hierarchy
+ *  and one where it is not each behave as their owner set them up. */
+export const fieldIsHierarchical = field =>
+  state.hierarchical ? state.hierarchical.has(field) : !NO_HIERARCHY.has(field);
 
-/** The same question asked with a calibre lookup name ("#genre", "authors")
- *  rather than a display name, for callers that already hold the field. */
-export const fieldIsHierarchical = field => !NO_HIERARCHY.has(field);
+/** The same question asked with a display name ("Genre", "Series"). */
+export const isHierarchical = colName => fieldIsHierarchical(lookupOf(colName));
 
 // The values of the column being picked, and whether the box above them is
 // filtering them. The saved-sets and Downloaded screens reuse this view with

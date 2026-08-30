@@ -205,7 +205,7 @@ via `npx @capacitor/assets generate --android` (sources derive from
 | POST | `/books/{id}/fields` | `{"changes": {"tags": [...], "#genre": "..."}}` |
 | POST | `/books/{id}/adopt` | rebuild sidecar snapshot from current epub |
 | GET | `/books/{id}/events` | audit log (incl. refusals) |
-| GET | `/categories` | tag/custom-column vocabularies (for chip UIs) |
+| GET | `/categories` | tag/custom-column vocabularies (for chip UIs), plus which columns calibre nests |
 
 Auth on everything except `/health` and the static `/ui` files:
 `X-Api-Token: <token>` or `Authorization: Bearer <token>`.

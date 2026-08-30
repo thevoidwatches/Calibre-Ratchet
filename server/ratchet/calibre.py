@@ -131,6 +131,23 @@ class CalibreClient:
         return self._request(
             "GET", f"/ajax/categories{self._lib_suffix(library_id)}").json()
 
+    def hierarchical_fields(self, library_id: str | None = None) -> list[str]:
+        """Lookup names of the categories calibre itself nests, e.g.
+        ["series", "tags", "#genre"].
+
+        It is a per-library preference (Look & feel -> Tag browser), so it is
+        asked of calibre rather than guessed from the field: which columns
+        hold dotted paths is the library owner's decision, not a property of
+        the column type. Comes from /interface-data/init — the only route
+        that reports it — which takes its library as a query parameter
+        rather than a path suffix, unlike the /ajax routes.
+        """
+        lib = self.lib if library_id is None else library_id.strip()
+        params = {"library_id": lib} if lib else {}
+        got = self._request("GET", "/interface-data/init",
+                            params=params).json().get("categories_using_hierarchy")
+        return [str(x) for x in got] if isinstance(got, list) else []
+
     def ajax(self, path: str, params: dict | None = None) -> Any:
         """GET an /ajax/... path handed back inside another ajax response (e.g. the per-category item URLs inside /ajax/categories)."""
         return self._request("GET", path, params=params or {}).json()

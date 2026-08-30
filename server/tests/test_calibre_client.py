@@ -70,6 +70,38 @@ def test_open_format_reports_a_refusal_with_calibre_words():
     assert "404" in str(e.value) and "calibre says no" in str(e.value)
 
 
+def test_hierarchical_fields_reads_calibres_own_preference():
+    """It lives in /interface-data/init, which takes its library as a query
+    parameter rather than the /ajax path suffix."""
+    seen = {}
+
+    def server(request: httpx.Request) -> httpx.Response:
+        if "authorization" not in request.headers:
+            return httpx.Response(401, headers={
+                "www-authenticate": 'Digest realm="calibre", nonce="a", qop="auth"'})
+        seen["url"] = str(request.url)
+        return httpx.Response(200, json={
+            "categories_using_hierarchy": ["series", "tags", "#genre"],
+            "library_id": "Books"})
+
+    c = CalibreClient("http://calibre.test", "", "user", "pw")
+    c._client = httpx.Client(transport=httpx.MockTransport(server))
+    assert c.hierarchical_fields("Books") == ["series", "tags", "#genre"]
+    assert "/interface-data/init" in seen["url"] and "library_id=Books" in seen["url"]
+
+
+def test_a_calibre_that_reports_no_hierarchy_is_not_an_error():
+    def server(request: httpx.Request) -> httpx.Response:
+        if "authorization" not in request.headers:
+            return httpx.Response(401, headers={
+                "www-authenticate": 'Digest realm="calibre", nonce="a", qop="auth"'})
+        return httpx.Response(200, json={"library_id": "Books"})   # key absent
+
+    c = CalibreClient("http://calibre.test", "", "user", "pw")
+    c._client = httpx.Client(transport=httpx.MockTransport(server))
+    assert c.hierarchical_fields("Books") == []
+
+
 def test_unreachable_server_is_a_calibre_error():
     def down(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("refused")
