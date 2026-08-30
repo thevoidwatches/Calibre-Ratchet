@@ -1,9 +1,11 @@
 // Sounds: outcomes (success/refused/error), select for moving about — a new
-// page, a step through the filter picker, a section opened or closed — and a
-// tap for everything else clickable. Files are dropped into static/sfx/ by
-// hand (see its README); each is optional, and a missing one stays silent.
+// page, a step through the filter picker, a section opened or closed, the
+// cover overlay, a choice from a dropdown — and a tap for everything else
+// clickable. Every error message sounds by itself, through core.js's event.
+// Files are dropped into static/sfx/ by hand (see its README); each is
+// optional, and a missing one stays silent.
 "use strict";
-import { $, UNAUTHORIZED_EVENT, VIEW_CHANGED_EVENT } from "./core.js";
+import { $, ERROR_EVENT, UNAUTHORIZED_EVENT, VIEW_CHANGED_EVENT } from "./core.js";
 
 const MUTE_KEY = "ratchet_muted";
 const VOLUME_KEY = "ratchet_volume";
@@ -131,6 +133,9 @@ function openVolume() {
   render();                 // slider starts at the stored value
   pop.hidden = false;
   $("volRange").focus();
+  // The hold that opens this is the one press on the speaker that should be
+  // heard: it is reaching for sound, not switching it off.
+  play("tap");
 }
 
 function setVolume(next) {
@@ -200,6 +205,8 @@ const SOUNDED_ELSEWHERE = [
   "#results li",       // open a book
   "#colList li",       // pick a column
   "#valTree .node",    // pick a value
+  "#btnFreeValue",     // "use" a typed value: lands on the book list
+  ".gofilter",         // a book-page value that filters the list
   "#btnAddFilter",
   ".orbtn",            // "+ or"
   "#btnSettings",
@@ -210,6 +217,9 @@ const SOUNDED_ELSEWHERE = [
 
 const COLLAPSE = "summary, #btnToggleFilters";
 const TAPPABLE = "button, .chip, .node, select, input[type=checkbox]";
+// Looks tappable, does nothing: a filter-bar chip's body — only its × acts.
+// A sound for a press that changes nothing would suggest it should have.
+const INERT = "#filterChips .chip";
 
 /** One delegated listener rather than a sound wired into every handler: new
  *  buttons then get the tap for free, and the exceptions stay in one list. */
@@ -218,7 +228,10 @@ function routeClick(e) {
   if (!(t instanceof Element)) return;
   if (t.closest(COLLAPSE)) { play("select"); return; }
   if (t.closest(SOUNDED_ELSEWHERE)) return;
-  if (t.closest(TAPPABLE)) play("tap");
+  // The nearest control, so a chip's × (a button) still taps while the chip
+  // around it stays quiet.
+  const hit = t.closest(TAPPABLE);
+  if (hit && !hit.matches(INERT)) play("tap");
 }
 
 export function initSfx() {
@@ -232,6 +245,11 @@ export function initSfx() {
   // stored token this fires before the first tap, so the browser may swallow
   // it; submitting a wrong token by hand always sounds.
   window.addEventListener(UNAUTHORIZED_EVENT, () => play("refused"));
+
+  // Every message in the error box, wherever it came from — including ones
+  // nobody tapped for, such as a book's story state failing to load.
+  window.addEventListener(ERROR_EVENT,
+                          e => play((e.detail && e.detail.kind) || "error"));
 
   const btn = $("btnMute");
   if (!btn) return;

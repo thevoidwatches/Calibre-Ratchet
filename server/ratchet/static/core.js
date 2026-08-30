@@ -75,6 +75,11 @@ export function apiUrl(path) {
 // core.js announces the rejection rather than calling play() and making the
 // two circular.
 export const UNAUTHORIZED_EVENT = "ratchet:unauthorized";
+// Fired by err() with {kind}: "error" normally, "refused" when the message
+// is a refusal rather than a failure. sfx.js turns it into the sound, so no
+// caller has to remember to — and none may play "error" beside an err()
+// call, or a failure sounds twice.
+export const ERROR_EVENT = "ratchet:error";
 
 // browse.js renders the filter chips and owns the "+ or" buttons, while
 // picker.js owns the column/value screens and already imports browse.js.
@@ -91,7 +96,10 @@ export const VIEW_CHANGED_EVENT = "ratchet:view-changed";
 // import back without making the pair circular.
 export const FILTER_BY_EVENT = "ratchet:filter-by";
 
-export function err(msg) { const b = $("errBox"); b.textContent = msg; b.hidden = false; }
+export function err(msg, kind = "error") {
+  const b = $("errBox"); b.textContent = msg; b.hidden = false;
+  window.dispatchEvent(new CustomEvent(ERROR_EVENT, {detail: {kind}}));
+}
 export function clearErr() { $("errBox").hidden = true; }
 
 export async function api(path, opts = {}) {

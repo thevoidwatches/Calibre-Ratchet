@@ -10,6 +10,7 @@
 "use strict";
 import { $, state, apiJson, api, err, clearErr } from "./core.js";
 import { renderFilterChips, renderFilterBar, search, termCount } from "./browse.js";
+import { play } from "./sfx.js";
 
 export async function loadSavedFilters() {
   const sel = $("savedFilters");
@@ -43,7 +44,9 @@ export function initFilters() {
   $("savedFilters").onchange = () => {
     const name = $("savedFilters").value;
     $("btnDeleteFilters").hidden = !name;
-    if (name) applySaved(name);
+    if (!name) return;
+    play("select");       // the choice is the move; opening the list tapped
+    applySaved(name);
   };
 
   $("btnSaveFilters").onclick = async () => {
@@ -61,6 +64,7 @@ export function initFilters() {
       await loadSavedFilters();
       $("savedFilters").value = name;
       $("btnDeleteFilters").hidden = false;
+      play("success");
     } catch (e) { err("could not save filter set — " + e.message); }
   };
 
@@ -71,6 +75,7 @@ export function initFilters() {
     try {
       await api("/filters/" + encodeURIComponent(name), {method: "DELETE"});
       await loadSavedFilters();
+      play("success");
     } catch (e) { err("could not delete filter set — " + e.message); }
   };
 }
