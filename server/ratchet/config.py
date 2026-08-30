@@ -89,6 +89,10 @@ class CalibreCfg:
     identifier_key: str = "url"  # FFF plugin's default identifier for the story URL
     # Custom column shown beside tags in the book list. Blank to show none.
     genre_field: str = "#genre"
+    # Custom column shown at the right of the title line in the book list, for
+    # books with no series — which is what otherwise occupies that space. A
+    # library without the column simply shows nothing there. Blank for none.
+    row_field: str = ""
     # fnmatch patterns for fields writable via POST /books/{id}/fields. This
     # is the permission boundary: the endpoint refuses anything not matching.
     writable_fields: list[str] = field(default_factory=lambda: ["title", "tags", "rating", "#*"])

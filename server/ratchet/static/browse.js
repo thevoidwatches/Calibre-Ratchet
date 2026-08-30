@@ -2,7 +2,7 @@
 "use strict";
 import { $, state, apiJson, err, clearErr, show, forgetBrowseScroll,
          FILTER_BY_EVENT, PICK_FILTER_EVENT } from "./core.js";
-import { seriesLabel, pageLabel } from "./format.js";
+import { seriesLabel, pageLabel, rowFieldLabel } from "./format.js";
 import { buildQuery, describeFilters, isDownloadedAtom, isPresetAtom } from "./query.js";
 import { openBook } from "./detail.js";
 import { downloadedIds } from "./catalog.js";
@@ -122,7 +122,8 @@ export async function search(more = false) {
     for (const b of data.books) {
       const li = document.createElement("li");
       li.innerHTML = '<div class="titlerow"><span class="t"></span>' +
-                     '<span class="ser"></span></div>' +
+                     '<span class="ser"></span>' +
+                     '<span class="rowfield"></span></div>' +
                      '<div class="small muted byline"><span class="who"></span>' +
                      '<span class="len"></span></div>' +
                      '<div class="meta"><span class="genres"></span>' +
@@ -130,6 +131,10 @@ export async function search(more = false) {
       li.querySelector(".t").textContent = b.title || ("(book " + b.id + ")");
       // Empty when the book has no series; the CSS then collapses the span.
       li.querySelector(".ser").textContent = seriesLabel(b);
+      // The configured column stands in at the end of the title line for a
+      // book with no series to put there. Both spans collapse when empty, so
+      // only ever one of them takes up the space.
+      li.querySelector(".rowfield").textContent = rowFieldLabel(b);
       li.querySelector(".who").textContent = (b.authors || []).join(", ");
       // Blank rather than "0 pages" when calibre has never counted this one;
       // the CSS collapses an empty span, so the row does not gain a gap.

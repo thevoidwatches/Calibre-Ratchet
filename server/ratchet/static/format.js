@@ -130,6 +130,15 @@ export function visibleValues(all, present, showAll, typed) {
  *  not. calibre fills the count in when a book's format is written, so an
  *  older book that has never been updated reports 0 — which means unknown
  *  here, not empty. */
+/** The configured column (calibre.row_field) as it appears at the right of a
+ *  row's title line — which is where a book with a series shows its series,
+ *  so this stands in only when there is none. Multi-valued columns read as
+ *  one list, the same separator the genre and tag lines use. */
+export function rowFieldLabel(meta) {
+  if (seriesLabel(meta)) return "";
+  return ((meta && meta.row_values) || []).join(" · ");
+}
+
 /** How far a download has got, for the busy line: "41% — 360 of 877 MB"
  *  when the total is known, "360 MB so far" when it is not. */
 export function progressLabel(bytes, total) {
