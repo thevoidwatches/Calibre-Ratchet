@@ -22,6 +22,12 @@ const POP_VIEWS = new Set(["browse", "pickcol", "detail", "token"]);
 // One entry below everything, put in before any view records itself. Reaching
 // it means the back button has run out of app to walk through, which is where
 // the shell would otherwise close.
+// Ratchet puts the book list back where it was itself (see show()). Left on
+// "auto" the browser also restores a position of its own, asynchronously and
+// after the popstate handler has run — so its guess, usually the top of the
+// page, would win every time and the place kept here would never be seen.
+if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+
 if (history.state === null) history.replaceState({view: ROOT_ENTRY}, "");
 
 window.addEventListener("popstate", e => {

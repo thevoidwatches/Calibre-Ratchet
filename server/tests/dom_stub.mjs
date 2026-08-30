@@ -41,9 +41,14 @@ globalThis.window = {
   addEventListener: noop,
   dispatchEvent: noop,
   matchMedia: () => ({matches: false, addEventListener: noop}),
-  scrollTo: noop,
+  // Enough of a scroll position to test that views restore or reset it.
+  scrollY: 0,
+  scrollTo(x, y) { this.scrollY = y; },
 };
 globalThis.matchMedia = globalThis.window.matchMedia;
+// Run straight away: the harness asserts the settled position, and there are
+// no frames here to wait for.
+globalThis.requestAnimationFrame = fn => { fn(); return 0; };
 globalThis.CustomEvent = class { constructor(type) { this.type = type; } };
 globalThis.Audio = class { constructor() { this.currentTime = 0; } load() {} play() { return Promise.resolve(); } };
 globalThis.URL.createObjectURL = () => "blob:stub";
