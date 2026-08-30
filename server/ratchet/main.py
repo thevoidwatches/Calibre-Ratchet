@@ -149,22 +149,50 @@ def _reject_blocked(url: str) -> None:
                  "config.toml — site trouble); remove it there to re-enable")
 
 
-def _story_url(library_id: str, book_id: int, epub_path: str) -> str:
+def _http_url(value: object) -> str | None:
+    """`value` when it is an http(s) link, else None.
+
+    <dc:source> is a plain Dublin Core field and a calibre identifier is
+    whatever was typed into it: a published epub commonly carries its ISBN
+    there ("9780593135204", "urn:isbn:9780804179034"). Those name the book
+    but are nothing to fetch, and a book is not site-sourced merely because
+    the field is filled in.
+    """
+    text = str(value).strip() if value else ""
+    return text if text.lower().startswith(("http://", "https://")) else None
+
+
+def find_story_url(library_id: str, book_id: int, epub_path: str,
+                   meta: dict | None = None) -> str | None:
+    """Where this book came from, or None if nothing says.
+
+    Sources in the order the FanFicFare plugin itself would trust them. Each
+    is checked only if the ones before it came to nothing — the last reads
+    every chapter of the book, which is not work to do speculatively.
+    """
     # Primary: the epub's own dc:source (what fanficfare -u itself will use).
-    url = epub_mod.read_story_url(epub_path)
+    url = _http_url(epub_mod.read_story_url(epub_path))
     if url:
         return url
     # Fallback: calibre identifiers (FFF plugin default key 'url').
-    try:
-        meta = calibre.book(book_id, library_id)
-        url = calibre.story_url_from_identifiers(meta, cfg.calibre.identifier_key)
-    except CalibreError:
-        url = None
+    if meta is None:
+        try:
+            meta = calibre.book(book_id, library_id)
+        except CalibreError:
+            meta = {}
+    url = _http_url(calibre.story_url_from_identifiers(
+        meta, cfg.calibre.identifier_key))
     if url:
         return url
     # Last resort, matching the FFF plugin's behaviour: a recognisable story
-    # link inside the book's own HTML (AO3-generated epubs carry one).
-    url = epub_mod.find_story_url_in_html(epub_path)
+    # link inside the book's own HTML (AO3-generated epubs carry one). Needs
+    # no check of its own — it returns only what an adapter recognised.
+    return epub_mod.find_story_url_in_html(epub_path)
+
+
+def _story_url(library_id: str, book_id: int, epub_path: str) -> str:
+    """The same, for the actions that cannot proceed without one."""
+    url = find_story_url(library_id, book_id, epub_path)
     if url:
         return url
     raise HTTPException(
@@ -523,9 +551,7 @@ def story_state(book_id: int, library: str | None = LIB_Q) -> dict:
     epub_path, tmp = _fetch_epub_to_temp(lib, book_id)
     with tmp:
         chapters = epub_mod.extract_chapters(epub_path)
-        url = (epub_mod.read_story_url(epub_path)
-               or calibre.story_url_from_identifiers(meta, cfg.calibre.identifier_key)
-               or epub_mod.find_story_url_in_html(epub_path))
+        url = find_story_url(lib, book_id, epub_path, meta)
     managed = bool(chapters)
     result = {
         "story_url": url,
