@@ -133,7 +133,8 @@
   <section id="vDetail" hidden>
     <button class="small" data-nav="browse">&larr; back</button>
     <div class="bookhead">
-      <img id="dCover" alt="" hidden>
+      <img id="dCover" alt="" hidden tabindex="0" role="button"
+           title="see the cover larger">
       <div class="bookhead-text">
         <h2><span id="dTitle"></span><button type="button" id="btnEditTitle"
             class="editicon" title="edit title" aria-label="edit title"
@@ -155,6 +156,14 @@
     <div id="decision" hidden></div>
     <div id="dEvents"></div>
   </section>
+
+  <!-- Opened by tapping the cover thumbnail; any tap closes it again. Outside
+       every section on purpose: a view change hides the section it came from,
+       which would take the overlay with it. -->
+  <div id="coverPop" class="coverpop" hidden role="dialog" aria-label="cover"
+       aria-modal="true">
+    <img id="coverPopImg" alt="">
+  </div>
 </main>
 <script type="module" src="app.js"></script>
 </body>

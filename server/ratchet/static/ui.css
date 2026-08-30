@@ -247,5 +247,17 @@ button.small.icon { min-width: 40px; padding: 6px 8px; }
             min-height: 34px; min-width: 34px; padding: 2px 6px; cursor: pointer; }
 .series { font-style: italic; font-size: 0.9rem; }
 
+/* The cover at full size, over everything. Sized in viewport units so a tall
+   cover is bounded by the height and a wide one by the width, with the image
+   keeping its own proportions either way. */
+.coverpop { position: fixed; inset: 0; z-index: 20; display: flex;
+            align-items: center; justify-content: center; padding: 16px;
+            background: var(--bg); }
+.coverpop[hidden] { display: none; }
+.coverpop img { max-width: 100%; max-height: 100%; width: auto; height: auto;
+                border: 2px solid var(--fg); border-radius: 4px; }
+/* The thumbnail is a control, so say so on the pointer that has a cursor. */
+.bookhead img { cursor: zoom-in; }
+
 /* Check / Update / Get EPUB sit together, centred. */
 .row.actions { justify-content: center; }
