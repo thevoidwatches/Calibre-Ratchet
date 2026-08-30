@@ -827,10 +827,41 @@ def delete_filter(name: str, library: str | None = LIB_Q) -> dict:
     return {"deleted": name}
 
 
+# Which categories calibre nests, per library. A preference that changes only
+# when someone edits it in calibre, but calibre is being edited alongside this,
+# so it is re-read now and then rather than held for the process's life.
+_HIER_TTL = 60.0
+_hier_cache: dict[str, tuple[float, list[str] | None]] = {}
+
+
+def _hierarchical(lib: str) -> list[str] | None:
+    """Hierarchical lookup names for `lib`, or None if calibre would not say —
+    the UI falls back to its own guess rather than flattening everything."""
+    hit = _hier_cache.get(lib)
+    now = time.monotonic()
+    if hit and now - hit[0] < _HIER_TTL:
+        return hit[1]
+    try:
+        fields: list[str] | None = calibre.hierarchical_fields(lib)
+    except CalibreError as e:
+        # Older calibre, or a route that moved: the categories themselves are
+        # the point of this endpoint and they arrived fine.
+        log.warning("categories: calibre would not say which are hierarchical "
+                    "(%s) — the UI will fall back to its own guess", e)
+        fields = None
+    _hier_cache[lib] = (now, fields)
+    return fields
+
+
 @app.get("/categories", dependencies=AUTH)
-def categories(library: str | None = LIB_Q):
-    """Tag-browser data (tag/custom-column vocabularies) for the chip UI."""
-    return calibre.categories(_lib(library))
+def categories(library: str | None = LIB_Q) -> dict:
+    """Tag-browser data (tag/custom-column vocabularies) for the chip UI, and
+    which of those columns calibre nests — so the picker offers the same tree
+    calibre's own tag browser does, and filtering on a parent finds what is
+    under it."""
+    lib = _lib(library)
+    return {"categories": calibre.categories(lib),
+            "hierarchical": _hierarchical(lib)}
 
 
 # One recent metadata sweep, so paging through columns in the value picker

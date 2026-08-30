@@ -19,6 +19,7 @@ export const state = {
   sortDir: localStorage.getItem(SORT_DIR_KEY) || "desc",
   updateAvailable: false,  // set by a Check that found new chapters
   cats: null,              // {name: {url}} parsed from /categories (best effort)
+  hierarchical: null,      // Set of lookup names calibre nests; null = it did not say
   catItems: {},            // name -> [itemName, ...] cache
   // AND of ORs: terms inside a group are ORed, groups are ANDed.
   filterGroups: [],        // [{terms: [{field, value, exclude, hierarchical}]}]
@@ -49,6 +50,7 @@ export function setLibrary(id) {
   // the previous one so filters can't leak across.
   state.cats = null;
   state.catItems = {};
+  state.hierarchical = null;   // nesting is a per-library preference
   state.filterGroups = [];
   state.savedFilters = [];
 }
