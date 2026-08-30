@@ -221,17 +221,18 @@ button.small.icon { min-width: 40px; padding: 6px 8px; }
 .list li .titlerow { display: flex; justify-content: space-between; gap: 10px;
                      align-items: baseline; }
 .list li .titlerow .t { min-width: 0; overflow-wrap: anywhere; }
-.list li .titlerow .ser { flex: 0 0 auto; font-style: italic;
-                          font-size: 0.85rem; text-align: right; }
-.list li .titlerow .ser:empty { display: none; }
-/* calibre.row_field, standing in where a book with a series shows its series.
-   Set in the title's own face rather than the series' italic, so it reads as
-   part of that line; allowed to shrink and trail off so a long value gives
-   way to the title instead of pushing it out of the row. */
-.list li .titlerow .rowfield { flex: 0 1 auto; text-align: right;
-                               overflow: hidden; text-overflow: ellipsis;
-                               white-space: nowrap; }
+/* The series, and calibre.row_field standing in for a book that has none:
+   one look for one place, whichever of the two is filling it. */
+.list li .titlerow .ser,
+.list li .titlerow .rowfield { flex: 0 0 auto; font-style: italic;
+                               font-size: 0.85rem; text-align: right; }
+.list li .titlerow .ser:empty,
 .list li .titlerow .rowfield:empty { display: none; }
+/* A chosen column can hold several values and run long, unlike a series name,
+   so this one gives way to the title and trails off instead of pushing it out
+   of the row. */
+.list li .titlerow .rowfield { flex: 0 1 auto; overflow: hidden;
+                               text-overflow: ellipsis; white-space: nowrap; }
 
 /* Author on the left of its row, page count on the right — the same
    two-sided arrangement as the title/series row above it. */
