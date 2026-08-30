@@ -17,10 +17,15 @@ function catNameFor(field) {
   return field;
 }
 
+// The size asked for when the cover is opened full-screen. calibre scales
+// server-side, so this costs one request rather than shipping the original.
+const COVER_LARGE = "1000x1500";
+
 async function showCover(id) {
   const img = $("dCover");
   img.hidden = true;
   img.removeAttribute("src");
+  closeCover();
   try {
     // Fetched rather than set as a src, because the cover endpoint needs the
     // auth header that a plain <img src> cannot send.
@@ -30,6 +35,50 @@ async function showCover(id) {
     img.hidden = false;
   } catch (e) { /* no cover is not an error */ }
 }
+
+function closeCover() {
+  const pop = $("coverPop");
+  if (pop.hidden) return false;
+  pop.hidden = true;
+  const big = $("coverPopImg");
+  // Release the object URL rather than leaking one per cover opened.
+  if (big.src.startsWith("blob:")) URL.revokeObjectURL(big.src);
+  big.removeAttribute("src");
+  return true;
+}
+
+/** The cover at full size. Fetched at a larger scale rather than stretching
+ *  the 160px thumbnail, which on a phone screen is mostly artefacts. */
+async function openCover() {
+  const id = state.bookId;
+  if (!id || $("dCover").hidden) return;
+  const pop = $("coverPop");
+  const big = $("coverPopImg");
+  try {
+    const blob = await (await api(
+      "/books/" + id + "/cover?sz=" + COVER_LARGE)).blob();
+    if (state.bookId !== id) return;
+    big.src = URL.createObjectURL(blob);
+    pop.hidden = false;
+    // Its own history entry, so the phone's back button closes the overlay
+    // instead of leaving the book underneath it.
+    history.pushState({view: "cover"}, "");
+  } catch (e) { /* the thumbnail is already on screen; nothing more to say */ }
+}
+
+$("dCover").addEventListener("click", openCover);
+$("dCover").addEventListener("keydown", e => {
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openCover(); }
+});
+$("coverPop").addEventListener("click", () => {
+  if (closeCover()) history.back();
+});
+// Escape on a keyboard, and the system back button on the phone, both close
+// the overlay rather than leaving the page underneath it.
+window.addEventListener("keydown", e => {
+  if (e.key === "Escape" && closeCover()) history.back();
+});
+export { closeCover };
 
 /** A piece of metadata that doubles as a way to find its siblings: tapping it
  *  filters the book list by that value. The label can differ from the value —
