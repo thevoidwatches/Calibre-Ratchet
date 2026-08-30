@@ -1,6 +1,6 @@
 // Entry point: nav wiring, token handling, boot.
 "use strict";
-import { $, state, setToken, setLibrary, setSort, apiJson, clearErr, show, ROOT_ENTRY, viewBehind, viewNow} from "./core.js";
+import { $, state, setToken, setLibrary, setSort, apiJson, err, clearErr, show, ROOT_ENTRY, viewBehind, viewNow} from "./core.js";
 import { renderFilterChips, renderFilterBar, search, queueAdd, firstUrl } from "./browse.js";
 import "./picker.js";     // side effect: filter-picker button handlers
 import "./actions.js";    // side effect: check/update/epub button handlers
@@ -106,6 +106,10 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") { hiddenAt = Date.now(); return; }
   if (hiddenAt && Date.now() - hiddenAt > STALE_AFTER_MS) location.reload();
   hiddenAt = null;
+  // A boot that could not reach the service leaves the app showing an error
+  // and nothing else; coming back to it is as good a moment as any to retry,
+  // and by then the tunnel is usually up.
+  if (bootFailed) boot();
   // A share into the running app brings it forward without reloading.
   checkSharedStory().catch(() => {});
 });
@@ -212,8 +216,14 @@ function initSort(uiCfg) {
   };
 }
 
+// Whether the last boot gave up without reaching the service, so that coming
+// back to the app can try again rather than sitting on the error until
+// something else happens to reload the page.
+let bootFailed = false;
+
 async function boot({announce = false} = {}) {
   clearErr();
+  bootFailed = false;
   if (!state.token) { resetLibrarySelect(); show("token", false); return; }
   try {
     const uiCfg = await apiJson("/ui-config");
@@ -221,7 +231,19 @@ async function boot({announce = false} = {}) {
     if (uiCfg.genre_field !== undefined) state.genreField = uiCfg.genre_field;
     if (Array.isArray(uiCfg.editable_fields)) state.editable = uiCfg.editable_fields;
     initSort(uiCfg);
-  } catch (e) { resetLibrarySelect(); return; }  // 401 already routed to the token view
+  } catch (e) {
+    resetLibrarySelect();
+    bootFailed = true;
+    // Something has to be on screen. Every section starts hidden and show()
+    // is what reveals one, so returning here without calling it left the app
+    // on a blank page — theme-coloured and completely silent about why.
+    // A 401 has already routed itself to the token screen; only fill in a
+    // view when nothing has.
+    if (viewNow() === null) show("browse", false);
+    if (String(e.message) !== "bad token")
+      err("could not reach Ratchet — " + e.message);
+    return;
+  }
   if (announce) play("success");   // the token was accepted
   await loadLibraries();
   ensureStorage();          // shell only: Ratchet/<library>/ folders on device
