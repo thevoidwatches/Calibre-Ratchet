@@ -44,6 +44,7 @@ function closeCover() {
   // Release the object URL rather than leaking one per cover opened.
   if (big.src.startsWith("blob:")) URL.revokeObjectURL(big.src);
   big.removeAttribute("src");
+  play("select");
   return true;
 }
 
@@ -61,8 +62,10 @@ async function openCover() {
     big.src = URL.createObjectURL(blob);
     pop.hidden = false;
     // Its own history entry, so the phone's back button closes the overlay
-    // instead of leaving the book underneath it.
+    // instead of leaving the book underneath it — and the sound of a move,
+    // for the same reason.
     history.pushState({view: "cover"}, "");
+    play("select");
   } catch (e) { /* the thumbnail is already on screen; nothing more to say */ }
 }
 
@@ -126,7 +129,7 @@ $("btnEditTitle").onclick = () => {
   const t = v.trim();
   if (!t || t === cur) return;
   saveField("title", t)
-    .catch(e => { err("save failed — " + e.message); play("error"); });
+    .catch(e => err("save failed — " + e.message));
 };
 
 export async function openBook(id, push = true) {
@@ -308,6 +311,7 @@ function renderDescription(host, meta) {
     const a = e.target.closest("a");
     if (!a || !a.href) return;
     e.preventDefault();
+    play("select");       // leaving for the browser is a move like any other
     openExternal(a.href);
   });
   fs.append(body);
@@ -339,13 +343,13 @@ function renderMultiEditor(fs, col) {
     x.textContent = "×";
     x.title = "remove";
     x.onclick = () => saveField(col.field, cur.filter(t => t !== v))
-      .catch(e => { err("save failed — " + e.message); play("error"); });
+      .catch(e => err("save failed — " + e.message));
     c.append(x); fs.append(c);
   }
   const addValue = v => {
     if (!v || cur.includes(v)) return;
     saveField(col.field, cur.concat([v]))
-      .catch(e => { err("save failed — " + e.message); play("error"); });
+      .catch(e => err("save failed — " + e.message));
   };
 
   // One box that both filters and creates. The <datalist> this replaces was
@@ -431,7 +435,7 @@ function renderSingleEditor(fs, col) {
     c.onclick = () => {
       if (v !== cur)
         saveField(col.field, v === "" ? null : v)
-          .catch(e => { err("save failed — " + e.message); play("error"); });
+          .catch(e => err("save failed — " + e.message));
     };
     fs.append(c);
   };

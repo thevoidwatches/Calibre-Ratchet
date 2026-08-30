@@ -55,6 +55,7 @@ initStorage();
 $("apkLink").addEventListener("click", async e => {
   e.preventDefault();
   if (!confirm(await updatePrompt())) return;
+  play("select");       // off to the browser: a move, once agreed to
   if (inShell()) openExternal(window.location.origin + "/apk");
   else window.location.href = "/apk";
 });
@@ -108,6 +109,12 @@ $("btnSaveToken").onclick = () => {
   setToken($("tokenInput").value.trim());
   boot({announce: true});
 };
+// No form around the box, so Enter has to be wired by hand. Clicking the
+// button rather than calling its handler keeps the tap sound, which comes
+// from the click.
+$("tokenInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") $("btnSaveToken").click();
+});
 
 /** The library to open on: whichever this device last chose, else the
  *  configured default, else the server's own default library. */
@@ -152,6 +159,9 @@ async function loadLibraries() {
   sel.disabled = false;
   sel.hidden = state.libraries.length < 2;
   sel.onchange = () => {
+    // Choosing from the dropdown is the move; the tap that opened it already
+    // sounded. From another page the change of view below sounds instead.
+    if (viewNow() === "browse") play("select");
     setLibrary(sel.value);        // persisted; this device reopens here
     $("q").value = "";
     renderFilterChips();
@@ -188,7 +198,7 @@ function initSort(uiCfg) {
   sel.value = state.sort;
   renderSortDir();
 
-  sel.onchange = () => { setSort(sel.value, state.sortDir); search(); };
+  sel.onchange = () => { play("select"); setSort(sel.value, state.sortDir); search(); };
   $("btnSortDir").onclick = () => {
     setSort(state.sort, state.sortDir === "desc" ? "asc" : "desc");
     renderSortDir();

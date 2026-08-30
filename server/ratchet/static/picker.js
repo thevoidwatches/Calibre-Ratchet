@@ -294,7 +294,7 @@ function addPresetAtom(name) {
       (state.savedFilters || []).map(f => [f.name, f.groups]));
     if (wouldCycle(presets, editing, name)) {
       err(`"${name}" already refers to "${editing}", so adding it here would ` +
-          "make the two refer to each other.");
+          "make the two refer to each other.", "refused");
       show("browse");
       return;
     }
@@ -339,6 +339,11 @@ $("btnFreeValue").onclick = () => {
   const v = $("freeValue").value.trim();
   if (v) addFilter(v);
 };
+// No form here either; Enter does what the "use" button does, through the
+// button so the two never drift apart.
+$("freeValue").addEventListener("keydown", e => {
+  if (e.key === "Enter") $("btnFreeValue").click();
+});
 
 // The same box filters the list below it and adds a value that isn't in it —
 // the arrangement the book page's editors use, so a long vocabulary is

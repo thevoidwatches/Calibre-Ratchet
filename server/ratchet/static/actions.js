@@ -164,11 +164,12 @@ $("btnCheck").onclick = async () => {
     const d = await apiJson("/books/" + id + "/check", {method: "POST"});
     renderDecision(d);
     setUpdateAvailable(d.action === "update");
-    // A check writes nothing, so "success" would overstate it; only a refusal
-    // — the thing worth hearing about — gets its own sound.
+    // A check writes nothing, so "up to date" is just the tap that asked. The
+    // two answers worth hearing are a refusal and new chapters waiting.
     playForDecision(d);
+    if (d.action === "update") play("success");
   }
-  catch (e) { err(whose(id, meta.title) + "check failed — " + e.message); play("error"); }
+  catch (e) { err(whose(id, meta.title) + "check failed — " + e.message); }
   finally { done(); }
 };
 
@@ -184,7 +185,7 @@ $("btnUpdate").onclick = async () => {
     setUpdateAvailable(false);   // whatever was pending has now been applied
     playForDecision(d);
   }
-  catch (e) { err(whose(id, meta.title) + "update failed — " + e.message); play("error"); }
+  catch (e) { err(whose(id, meta.title) + "update failed — " + e.message); }
   finally { done(); }
 };
 
@@ -231,9 +232,9 @@ $("btnRead").onclick = async () => {
     const done = busy(id, meta.title, "opening…");
     try { await openBookInReader(meta); }
     finally { done(); }
+    play("success");      // handed to the reader
   } catch (e) {
     err(whose(id, meta.title) + "could not open — " + e.message);
-    play("error");
   }
 };
 
@@ -259,7 +260,7 @@ $("btnConvert").onclick = async () => {
     box.append(head);
     play("success");
     refreshActions();     // Check/Update take this button's place
-  } catch (e) { err(whose(id, meta.title) + "convert failed — " + e.message); play("error"); }
+  } catch (e) { err(whose(id, meta.title) + "convert failed — " + e.message); }
   finally { done(); }
 };
 
@@ -281,7 +282,7 @@ $("btnEpub").onclick = async () => {
       }
       await refreshActions();
       play("success");
-    } catch (e) { err(whose(id, meta.title) + "failed — " + e.message); play("error"); }
+    } catch (e) { err(whose(id, meta.title) + "failed — " + e.message); }
     return;
   }
   const done = busy(id, meta.title, "downloading epub…");
@@ -293,7 +294,6 @@ $("btnEpub").onclick = async () => {
     // Dismissing the folder picker is a choice, not a failure.
     if (e && e.name === "AbortError") return;
     err("download failed — " + e.message);
-    play("error");
   }
   finally { done(); }
 };

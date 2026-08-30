@@ -770,3 +770,55 @@ def test_filter_picker_sorts_and_filters_its_values():
     assert 'freeValue").addEventListener("input"' in picker
     html = client.get("/ui/").text
     assert 'placeholder="filter, or type a value"' in html
+
+
+UI_MODULES = ["app.js", "browse.js", "picker.js", "detail.js", "actions.js",
+              "filters.js", "storage.js", "catalog.js", "theme.js"]
+
+
+def test_every_error_message_sounds_exactly_once():
+    """core.js announces err(); sfx.js plays it — so no caller may also play
+    "error" beside an err() call, or a failure would sound twice. Same
+    event-not-import arrangement as the 401 and the view changes."""
+    core = client.get("/ui/core.js").text
+    sfx = client.get("/ui/sfx.js").text
+    assert "ERROR_EVENT" in core and "dispatchEvent(new CustomEvent(ERROR_EVENT" in core
+    assert "ERROR_EVENT" in sfx and 'play((e.detail && e.detail.kind) || "error")' in sfx
+    for name in UI_MODULES:
+        js = client.get("/ui/" + name).text
+        for m in re.finditer(r"(?<![A-Za-z])err\(", js):
+            window = js[m.start():m.start() + 160]
+            assert 'play("error")' not in window, f"{name}: {window!r}"
+    # The one refusal shown through err() says so, and sounds so.
+    assert '"refused");' in client.get("/ui/picker.js").text
+
+
+def test_one_action_one_sound():
+    """Controls whose click ends in a view change sound for that, not for the
+    click as well; a filter chip's body, which does nothing, sounds not at
+    all while its × still does."""
+    sfx = client.get("/ui/sfx.js").text
+    elsewhere = sfx.split("const SOUNDED_ELSEWHERE")[1].split("].join")[0]
+    for sel in ['"#btnFreeValue"', '".gofilter"', '"[data-nav]"', '"#results li"']:
+        assert sel in elsewhere, sel
+    assert 'INERT = "#filterChips .chip"' in sfx
+    assert "const hit = t.closest(TAPPABLE)" in sfx and "hit.matches(INERT)" in sfx
+
+
+def test_the_quiet_corners_now_sound():
+    """The overlay, the dropdown choices, the saved-set buttons, the Read
+    hand-off, and the Enter key where there is no form to submit."""
+    detail = client.get("/ui/detail.js").text
+    assert detail.count('play("select")') >= 3      # cover open, cover close, link out
+    app = client.get("/ui/app.js").text
+    assert app.count('play("select")') >= 3          # library, sort, apk link
+    assert 'tokenInput").addEventListener("keydown"' in app
+    filters = client.get("/ui/filters.js").text
+    assert filters.count('play("success")') == 2 and 'play("select")' in filters
+    picker = client.get("/ui/picker.js").text
+    assert 'freeValue").addEventListener("keydown"' in picker
+    actions = client.get("/ui/actions.js").text
+    assert 'if (d.action === "update") play("success")' in actions
+    assert actions.count('play("success")') >= 5     # + read hand-off
+    sfx = client.get("/ui/sfx.js").text
+    assert 'play("tap")' in sfx.split("function openVolume")[1].split("}")[0]
