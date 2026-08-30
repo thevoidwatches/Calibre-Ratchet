@@ -178,7 +178,7 @@ def test_login_success_sound_is_only_for_a_deliberate_sign_in():
 def test_sort_options_are_published_and_default_to_last_modified():
     body = client.get("/ui-config", headers=TOK).json()
     keys = [o["key"] for o in body["sort_options"]]
-    assert keys == ["title", "series", "author", "modified"]
+    assert keys == ["title", "series", "author", "modified", "pages"]
     assert body["default_sort"] == "modified"
 
 

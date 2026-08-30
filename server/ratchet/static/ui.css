@@ -220,6 +220,14 @@ button.small.icon { min-width: 40px; padding: 6px 8px; }
                           font-size: 0.85rem; text-align: right; }
 .list li .titlerow .ser:empty { display: none; }
 
+/* Author on the left of its row, page count on the right — the same
+   two-sided arrangement as the title/series row above it. */
+.list li .byline { display: flex; justify-content: space-between; gap: 10px;
+                   align-items: baseline; }
+.list li .byline .who { min-width: 0; overflow-wrap: anywhere; }
+.list li .byline .len { flex: 0 0 auto; }
+.list li .byline .len:empty { display: none; }
+
 /* Book list: genres on the left, tags on the right, both italic. */
 .list li .meta { display: flex; justify-content: space-between; gap: 10px;
                  font-style: italic; font-size: 0.85rem; margin-top: 2px; }
