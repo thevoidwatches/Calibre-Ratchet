@@ -1,11 +1,14 @@
 """Shared plumbing for the one-off metadata rewriting scripts.
 
-Each script supplies a transform from a book's current value for one
-multi-value column (plus its metadata, for rules that read other columns) to
-the value it should have. This module handles the library sweep, the dry-run
-report, the write, and the rollback file. Keeping it here means a fix to the
-apply/undo path is made once rather than in every script that rewrites
-metadata.
+Each script supplies a transform from a book's current metadata to the value
+one or more of its columns should have. This module handles the library
+sweep, the dry-run report, the write, and the rollback file. Keeping it here
+means a fix to the apply/undo path is made once rather than in every script
+that rewrites metadata.
+
+run() is the single-column case, which most of the scripts use. run_multi()
+is for the ones that move a value from one column into another, where both
+ends have to change together or not at all.
 """
 
 from __future__ import annotations
@@ -76,15 +79,29 @@ def run(args, transform, rollback_stem: str, field: str = "tags",
     once with every book's metadata first, for rules that need to look at the
     library as a whole before deciding anything about one book.
     """
+    def one_field(meta):
+        return {field: transform(current(meta, field), meta)}
+
+    return run_multi(args, one_field, rollback_stem, prepare=prepare)
+
+
+def run_multi(args, transform, rollback_stem: str, prepare=None) -> int:
+    """As run(), but `transform(meta) -> {field: value}` may name several
+    columns. Only the columns it returns are compared and written, so a
+    script that usually touches one and occasionally touches three does not
+    have to declare that up front."""
     cfg = load_config(args.config)
     calibre = CalibreClient(cfg.calibre.base_url, "", cfg.calibre.username,
                             cfg.calibre.password)
 
     if args.rollback:
         undo = json.loads(backup_path(args.rollback).read_text(encoding="utf-8"))
-        for book_id, value in undo.items():
-            calibre.set_fields(int(book_id), {field: value}, args.library)
-            print(f"restored {book_id}: {value}")
+        for book_id, fields in undo.items():
+            # Older undo files hold a bare list, from when only tags moved.
+            if isinstance(fields, list):
+                fields = {"tags": fields}
+            calibre.set_fields(int(book_id), fields, args.library)
+            print(f"restored {book_id}: {fields}")
         print(f"\n{len(undo)} book(s) restored.")
         return 0
 
@@ -96,25 +113,32 @@ def run(args, transform, rollback_stem: str, field: str = "tags",
     if prepare is not None:
         prepare(metas)
 
-    changes: dict[str, tuple[list[str], list[str]]] = {}
+    changes: dict[str, tuple[dict, dict]] = {}
     for book_id, meta in metas.items():
         if not meta:
             continue
-        old = current(meta, field)
-        new = dedupe(transform(old, meta))
-        if new != old:
+        proposed = transform(meta) or {}
+        old, new = {}, {}
+        for name, value in proposed.items():
+            was = current(meta, name)
+            now = dedupe(value)
+            if now != was:
+                old[name], new[name] = was, now
+        if new:
             changes[book_id] = (old, new)
 
     print(f"{len(changes)} book(s) to change"
           f"{'' if args.apply else '  (dry run — nothing will change)'}\n")
     for book_id, (old, new) in sorted(changes.items(), key=lambda x: int(x[0])):
         print(f"{book_id:>5}  {(metas[book_id].get('title') or '')[:44]}")
-        for t in old:
-            if t not in new:
-                print(f"       - {t}")
-        for t in new:
-            if t not in old:
-                print(f"       + {t}")
+        for name in sorted(new):
+            label = "" if name == "tags" else f"{name} "
+            for t in old[name]:
+                if t not in new[name]:
+                    print(f"       - {label}{t}")
+            for t in new[name]:
+                if t not in old[name]:
+                    print(f"       + {label}{t}")
 
     if args.apply and changes:
         undo = {bid: old for bid, (old, _) in changes.items()}
@@ -125,7 +149,7 @@ def run(args, transform, rollback_stem: str, field: str = "tags",
         failed = 0
         for book_id, (_, new) in changes.items():
             try:
-                calibre.set_fields(int(book_id), {field: new}, args.library)
+                calibre.set_fields(int(book_id), new, args.library)
             except CalibreError as e:
                 failed += 1
                 print(f"FAIL  {book_id}: {e}")
