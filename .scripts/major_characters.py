@@ -105,6 +105,7 @@ NOT_A_CHARACTER = {
     "Hellsing", "His Older Self", "Reader", "OC", "Female",
     # mantles, titles and family names worn by someone else
     "Wizard", "Heterodyne", "Robin", "Parker", "Boy-Who-Lived",
+    "Captain America",
     # Identity Reveal's qualifiers, which share its depth
     "Accidental", "Partial", "Public",
     # Powers.Generic.<power> with nobody attached, at the same depth as
@@ -127,6 +128,8 @@ OVERRIDES = {
     # Girl Genius power, and the Doctor Who one is Watson as a Time Lord.
     "Sherlock Holmes": "Sherlock",
     "John Watson": "Sherlock",
+    "Acererak": "Forgotten Realms",
+    "Sauron": "The Lord of the Rings",
 }
 
 # Tag-side fandom names spelled differently from the #fandom column. Only
@@ -195,6 +198,13 @@ def resolve_fandom(claim: str | None, book_fandoms: list[str]) -> str | None:
     for root in roots:
         if root.lower().startswith(want.lower()) or want.lower().startswith(root.lower()):
             return root
+    # The claim matches nothing the book is filed under. On a book with one
+    # fandom the claim was only ever a disambiguator and is redundant, so the
+    # book wins: "Boromir (LotR)" on a book filed as The Lord of the Rings is
+    # that fandom, not a new one called LotR. Only a crossover, where the book
+    # cannot say which half a name belongs to, has to fall back to the claim.
+    if len(roots) == 1:
+        return roots[0]
     return want or None
 
 

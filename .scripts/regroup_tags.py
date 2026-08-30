@@ -50,6 +50,10 @@ ROOT_MOVES = {
 
 # 2 and 3. Whole tags that need a specific hand-written replacement.
 EXACT = {
+    # Tagged with the wrong character: the miko in Constellations is Taylor,
+    # not Harry, and the book is an Okami x Worm crossover with no Harry
+    # Potter fandom on it at all.
+    "Jobs.Generic.Miko.Harry Potter": "Jobs.Generic.Miko.Taylor Hebert",
     "Character Traits.Relative.Yandere.Taylor Hebert.Taylor Hebert":
         "Character Traits.Relative.Yandere.Taylor Hebert",
     "Character Traits.Relative.Miss Militia":

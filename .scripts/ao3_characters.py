@@ -384,7 +384,9 @@ def write_review(args) -> int:
             if bucket is None:
                 continue
             name, labelled = split_label(bucket[tag])
-            if not name or labelled:
+            # A tag already answered with "-" is decided, not outstanding:
+            # asking for a fandom for something being dropped is noise.
+            if not name or labelled or name == NOT_A_CHARACTER:
                 continue
             known = placeable.get(name) or set()
             if len(known) == 1 and known & set(roots):

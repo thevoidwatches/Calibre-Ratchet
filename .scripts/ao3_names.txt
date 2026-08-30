@@ -19,7 +19,7 @@
 # Rerunning --review keeps every line already here and only appends
 # tags it has not seen, so nothing decided is ever overwritten.
 
-# ==== matched a name already in the library (322) =========
+# ==== matched a name already in the library (350) =========
 # check for a wrong person; otherwise nothing to do
 
 #   Castlevania
@@ -33,6 +33,7 @@ Alfred Pennyworth                                   = Alfred Pennyworth
 Alfred the Cat (DCU)                                = Alfred the Cat
 Billy Batson                                        = Billy Batson
 Bruce Wayne                                         = Bruce Wayne
+Cassandra Cain                                      = Cassandra Cain
 Clark Kent                                          = Clark Kent
 Damian Wayne                                        = Damian Wayne
 Dick Grayson                                        = Dick Grayson
@@ -43,6 +44,7 @@ Jason Todd                                          = Jason Todd
 Kathy Branden                                       = Kathy Branden
 Koriand'r                                           = Koriand'r
 Leslie Thompkins                                    = Leslie Thompkins
+Lex Luthor                                          = Lex Luthor
 Lois Lane                                           = Lois Lane
 Pamela Isley                                        = Pamela Isley
 Roy Harper                                          = Roy Harper
@@ -58,29 +60,33 @@ Fred Colon                                          = Fred Colon @ Discworld
 Gaspode (Discworld)                                 = Gaspode @ Discworld
 Havelock Vetinari                                   = Havelock Vetinari
 Hex (Discworld)                                     = Hex @ Discworld
-Igor                                                = Igor
-Lady Sybil                                          = Lady Sybil
+Igor                                                = Igor @ Discworld
+Lady Sybil                                          = Lady Sybil @ Discworld
 Mustrum Ridcully                                    = Mustrum Ridcully @ Discworld
 Nac Mac Feegle                                      = Nac Mac Feegle @ Discworld
-Nobby Nobbs                                         = Nobby Nobbs
+Nobby Nobbs                                         = Nobby Nobbs @ Discworld
 Ponder Stibbons                                     = Ponder Stibbons @ Discworld
 Rufus Drumknott                                     = Rufus Drumknott @ Discworld
-Samuel Vimes                                        = Samuel Vimes
+Samuel Vimes                                        = Samuel Vimes @ Discworld
 The Librarian (Discworld)                           = The Librarian @ Discworld
 Tiffany Aching                                      = Tiffany Aching @ Discworld
-Young Sam Vimes                                     = Young Sam Vimes
+Young Sam Vimes                                     = Young Sam @ Discworld
 
 #   Dresden Files
+Carlos Ramirez                                      = Carlos Ramirez @ Dresden Files
+Harry Dresden                                       = Harry Dresden @ Dresden Files
 Maeve (Lady of Winter)                              = Maeve @ Dresden Files
 
 #   Fullmetal Alchemist
 Alphonse Elric                                      = Alphonse Elric
 Edward Elric                                        = Edward Elric
+Izumi Curtis                                        = Izumi Curtis
 Jean Havoc                                          = Jean Havoc @ Fullmetal Alchemist
 Maes Hughes                                         = Maes Hughes @ Fullmetal Alchemist
 Mei Chan | May Chang                                = Mei Chan @ Fullmetal Alchemist
 Riza Hawkeye                                        = Riza Hawkeye
 Roy Mustang                                         = Roy Mustang
+Winry Rockbell                                      = Winry Rockbell
 
 #   Girl Genius
 Adam Clay | Punch                                   = Adam Clay
@@ -123,8 +129,10 @@ Ginny Weasley                                       = Ginny Weasley
 Harry Potter                                        = Harry Potter
 Hermione Granger                                    = Hermione Granger
 Kreacher (Harry Potter)                             = Kreacher @ Harry Potter
+Luna Lovegood                                       = Luna Lovegood
 Remus Lupin                                         = Remus Lupin
 Ron Weasley                                         = Ron Weasley
+Severus Snape                                       = Severus Snape
 Sirius Black                                        = Sirius Black
 The Dursleys                                        = The Dursleys @ Harry Potter
 
@@ -144,6 +152,10 @@ Henry Lascelles                                     = Henry Lascelles
 John Childermass                                    = John Childermass
 Jonathan Strange                                    = Jonathan Strange
 The Lady of the Castle of the Plucked Eye and Heart = The Lady of the Castle of the Plucked Eye and Heart
+
+#   K-Pop Demon Hunters
+Bobby (KPop Demon Hunters)                          = Bobby
+Jinu (KPop Demon Hunters)                           = Jinu
 
 #   Leverage
 Alec Hardison                                       = Alec Hardison
@@ -227,6 +239,7 @@ T'Challa (Marvel)                                   = T'Challa
 Tandy Bowen                                         = Tandy Bowen
 Thanos (Marvel)                                     = Thanos
 Thor (Marvel)                                       = Thor
+Tony Stark                                          = Tony Stark @ Marvel Comics
 Tracksuit Mafia                                     = Tracksuit Mafia
 Tyrone Johnson                                      = Tyrone Johnson
 Ultron (Marvel)                                     = Ultron
@@ -252,10 +265,13 @@ Chat Noir (Miraculous Ladybug)                      = Chat Noir
 Chloé Bourgeois                                     = Chloe Bourgeois
 Emilie Agreste                                      = Emilie Agreste
 Gabriel Agreste                                     = Gabriel Agreste
+Gabriel Agreste | Papillon | Hawk Moth              = Gabriel Agreste
 Ivan Bruel                                          = Ivan Bruel
 Jean Duparc                                         = Jean Duparc
 Juleka Couffaine                                    = Juleka Couffaine
+Kagami Tsurugi                                      = Kagami Tsurugi
 Lila Rossi                                          = Lila Rossi
+Luka Couffaine                                      = Luka Couffaine
 Marinette Cheng | Ladybug                           = Marinette Cheng
 Marinette Dupain-Cheng                              = Marinette Dupain-Cheng
 Marinette Dupain-Cheng | Ladybug                    = Marinette Dupain-Cheng
@@ -279,6 +295,9 @@ Tom Dupain                                          = Tom Dupain
 Vixen                                               = Vixen
 Wayzz (Miraculous Ladybug)                          = Wayzz
 
+#   Monster Prom
+Hex (Monster Prom)                                  = Hex
+
 #   My Hero Academia
 Aiba Manami | La Brava                              = La Brava
 Aizawa Shouta | Eraserhead                          = Shouta Aizawa
@@ -287,6 +306,7 @@ Aoyama Yuuga                                        = Aoyama Yuuga
 Ashido Mina                                         = Mina Ashido
 Asui Tsuyu                                          = Asui Tsuyu
 Bakugou Katsuki                                     = Katsuki Bakugo
+Dabi | Todoroki Touya                               = Toya Todoroki
 Eri (My Hero Academia)                              = Eri
 Gran Torino (My Hero Academia)                      = Gran Torino
 Hagakure Tooru                                      = Hagakure Tooru
@@ -302,8 +322,9 @@ Kouda Kouji                                         = Kouda Kouji
 Kurogiri (My Hero Academia)                         = Kurogiri
 Midoriya Hisashi                                    = Hisashi Midoriya
 Midoriya Inko                                       = Inko Midoriya
-Midoriya Izuku                                      = Izuku Midoriya
+Midoriya Izuku                                      = Izuku Midoriya @ My Hero Academia
 Ojiro Mashirao                                      = Ojiro Mashirao
+Sasaki Mirai | Sir Nighteye                         = Sasaki Mirai
 Satou Rikidou                                       = Satou Rikidou
 Sensei | All For One                                = All For One
 Sero Hanta                                          = Sero Hanta
@@ -362,23 +383,46 @@ Xanatos (Star Wars)                                 = Xanatos
 Yoda (Star Wars)                                    = Yoda
 
 #   Worm
+Amy Dallon | Panacea | Red Queen                    = Amy Dallon
 Brian Laborn (Worm)                                 = Brian Laborn
+Brian Laborn | Grue                                 = Brian Laborn
+Charlotte (Parahumans)                              = Charlotte
+Ciara | Glaistig Uaine | Valkyrie                   = Valkyrie
 Colin Wallis | Armsmaster | Defiant                 = Colin Wallis
 Danny Hebert                                        = Danny Hebert
 Danny Hebert (Worm)                                 = Danny Hebert
+Dragon (Parahumans)                                 = Dragon
+Hannah | Hana | Miss Militia                        = Miss Militia
 Jack Slash                                          = Jack Slash
 Jacob (Worm)                                        = Jacob
+Jacob | Jack Slash                                  = Jacob
 Lisa Wilbourn (Worm)                                = Lisa Wilbourn
+Lisa Wilbourn | Tattletale                          = Lisa Wilbourn
+Missy Biron | Vista                                 = Vista
 Robin Swoyer | Velocity                             = Robin Swoyer
+Sophia Hess | Shadow Stalker                        = Sophia Hess
 Sveta (Worm)                                        = Sveta
 Taylor Hebert                                       = Taylor Hebert
 Taylor Hebert (Worm)                                = Taylor Hebert
 Taylor Hebert | Skitter                             = Taylor Hebert
 Taylor Hebert | Skitter | Weaver                    = Taylor Hebert
+Victoria Dallon | Glory Girl | Antares              = Victoria Dallon
 
-# ==== look like a short form of a known name -- CHECK THESE (11) 
+# ==== look like a short form of a known name -- CHECK THESE (21) 
 # the tag gave a partial name and exactly one library name in the
 # same fandom fits. Most useful section to read.
+
+#   Avatar
+Aang                                                = Aang
+Aang (Avatar)                                       = Aang
+Azula (Avatar)                                      = Azula
+Katara                                              = Katara
+Katara (Avatar)                                     = Katara
+Sokka                                               = Sokka
+Sokka (Avatar)                                      = Sokka
+Suki                                                = Suki
+Toph                                                = Toph
+Zuko                                                = Zuko
 
 #   DC Comics
 Diana (Wonder Woman)                                = Diana Prince
@@ -395,12 +439,13 @@ Nino (Miraculous Ladybug)                           = Nino Lahiffe
 Rose (Miraculous Ladybug)                           = Rose Lavillant
 Sabrina (Miraculous Ladybug)                        = Sabrina Raincomprix
 
-# ==== look like a group rather than a person (9) ========
+# ==== look like a group rather than a person (10) ========
 # pre-set to '-' (dropped). Put a name back if one is really a person.
 
 #   (dropped)
 Ant Family                                          = -
 Background & Cameo Characters                       = -
+Bakugou Katsuki's Family                            = -
 Classmates (Miraculous Ladybug)                     = -
 Original Character                                  = -
 Original Characters                                 = -
@@ -409,16 +454,7 @@ Original Female Character(s) of Color               = -
 Reader                                              = -
 original miraculous wielders                        = -
 
-# ==== only on crossovers -- NAME THE FANDOM AFTER THE @ (1) 
-# these books are filed under two fandoms and the library cannot
-# place these names on its own, so they are dropped unless you
-# finish the line: 'Krosp = Krosp @ Girl Genius'. Leaving the @
-# empty skips the tag, which is a fine answer too.
-
-#   choose: Girl Genius / Marvel Comics, choose: Marvel Comics, choose: Marvel Comics / Miraculous
-Tony Stark                                          = Tony Stark @ 
-
-# ==== new characters, kept under their own name (31) =====
+# ==== new characters, kept under their own name (150) =====
 # not in the library yet; the author tagged them, so they come in
 # as-is. Hero names needing an alias will be in here -- e.g. set
 # Chat Noir to Adrien Agreste rather than letting it stand alone.
@@ -426,28 +462,97 @@ Tony Stark                                          = Tony Stark @
 #   (dropped)
 "Macho Man" Randy Savage                            = -
 Absolutely Everyone - Character                     = -
+All the above                                       = -
 Class 1-A (My Hero Academia)                        = -
+Class 1-B (My Hero Academia)                        = -
+Every Minor Character from Monster Camp             = -
+Every Minor Character from Monster Prom             = -
+Green Lantern                                       = -
+Jinu’s Mother (KPop Demon Hunters)                  = -
+Jinu’s Sister (KPop Demon Hunters)                  = -
 Past One For All Users (My Hero Academia)           = -
+Robin (DCU)                                         = -
+U.A. Faculty (My Hero Academia)                     = -
+Valerie Kinbott                                     = -
+assorted classmates                                 = -
 most of the oneshot villains get cameos             = -
 the usual suspect classmates                        = -
 the vaguest mention of                              = -
 
+#   Avatar
+Iroh                                                = Iroh
+Toph Bei Fong                                       = Toph Bei Fong
+Ty Lee (Avatar)                                     = Ty Lee
+
 #   DC Comics
+Alan Scott                                          = Alan Scott
+Barbara Gordon                                      = Barbara Gordon
+Bart Allen                                          = Bart Allen
+Batman                                              = Bruce Wayne
+Cassie Sandsmark                                    = Cassie Sandsmark
+Dana Winters                                        = Dana Winters
+Elaine Marsh-Morton                                 = Elaine Marsh-Morton
+Garfield Logan                                      = Garfield Logan
+Jack Drake                                          = Jack Drake
+Janet Drake                                         = Janet Drake
 Jonathan Samuel Kent                                = Jon Kent
+Kate Kane                                           = Kate Kane
+Kon-El | Conner Kent                                = Kon-El
+Perry White                                         = Perry White
+Ra's al Ghul                                        = Ra's al Ghul
+Sebastian Ives                                      = Sebastian Ives
+Slade Wilson                                        = Slade Wilson
+Stephanie Brown                                     = Stephanie Brown
+Superman                                            = Clark Kent
 
 #   Discworld
 Sergeant Angua                                      = Angua von Uberwald
 Sergeant Colon                                      = Fred Colon
 
 #   Dresden Files
+Aurora (Dresden Files - Butcher)                    = Aurora
+Elaine Mallory                                      = Elaine Mallory
 Harry Blackstone Copperfield Dresden                = Harry Dresden @ Dresden Files
+Justin DuMorne                                      = Justin DuMorne
+Karrin Murphy                                       = Karrin Murphy
+Molly Carpenter                                     = Molly Carpenter
+
+#   Fullmetal Alchemist
+Envy (Fullmetal Alchemist)                          = Envy
+Father (Fullmetal Alchemist)                        = Father
+Gracia Hughes                                       = Gracia Hughes
+Lust (Fullmetal Alchemist)                          = Lust
+Nina Tucker                                         = Nina Tucker
+OCs                                                 = OCs
+Olivier Armstrong                                   = Olivier Armstrong
+Pinako Rockbell                                     = Pinako Rockbell
+Scar (Fullmetal Alchemist)                          = Scar
+Truth (Fullmetal Alchemist)                         = Truth
+Van Hohenheim                                       = Van Hohenheim
 
 #   Girl Genius
 Jagers - Character                                  = Jagermonsters
 Zeetha Daughter of Chump                            = Zeetha @ Girl Genius
 
 #   Harry Potter
+Blaise Zabini                                       = Blaise Zabini @ Harry Potter
 Narcissa Black Malfoy                               = Narcissa Malfoy
+Pansy Parkinson                                     = Pansy Parkinson @ Harry Potter
+
+#   K-Pop Demon Hunters
+Abby (KPop Demon Hunters)                           = Abby
+Baby (KPop Demon Hunters)                           = Baby
+Bird (KPop Demon Hunters)                           = Bird
+Celine (KPop Demon Hunters)                         = Celine
+Derpy the Tiger (KPop Demon Hunters)                = Derpy the Tiger
+Gwi-Ma (KPop Demon Hunters)                         = Gwi-Ma
+Mira (KPop Demon Hunters)                           = Mira
+Mystery (KPop Demon Hunters)                        = Mystery
+Romance (KPop Demon Hunters)                        = Romance
+Rumi (KPop Demon Hunters)                           = Rumi
+Sussie the Magpie (KPop Demon Hunters)              = Sussie the Magpie
+Tiger (KPop Demon Hunters)                          = Derpy the Tiger
+Zoey (KPop Demon Hunters)                           = Zoey
 
 #   Marvel Comics
 Franklin "Foggy" Nelson                             = Foggy Nelson
@@ -456,15 +561,56 @@ James "Rhodey" Rhodes                               = Rhodey
 Patricia "Trish" Walker                             = Trish Walker
 
 #   Miraculous
+Caline Bustier's Class                              = Caline Bustier's Class
+Carapace (Miraculous Ladybug)                       = Carapace
 Fox!Alya                                            = Alya Cesaire
+Félix Graham de Vanily                              = Félix Graham de Vanily
 Hawk Moth | Le Papillon                             = Gabriel Agreste
+Hawkmoth - Character                                = Gabriel Agreste
+Jalil Kubdel                                        = Jalil Kubdel
 Ladybug                                             = Marinette Dupain-Cheng
 Ladybug (Miraculous Ladybug)                        = Marinette Dupain-Cheng
 Lê Chiến Kim                                        = Kim le Chien
+Manon (Miraculous Ladybug)                          = Manon
 Mrs. Agreste (Miraculous Ladybug)                   = Emilie Agreste
 Nathanael Kurtzburg                                 = Nathanael Kurtzberg
 Nathaniel Kurtzberg                                 = Nathanael Kurtzberg
+Rena Rouge (Miraculous Ladybug)                     = Rena Rouge
+Théo Barbeau                                        = Théo Barbeau
+Trixx (Miraculous Ladybug)                          = Trixx
 Volpina (Miraculous Ladybug)                        = Lila Rossi
+
+#   Monster Prom
+Aaravi the Slayer (Monster Prom)                    = Aaravi the Slayer
+Blue | Jun-Seo (Monster Prom)                       = Jun-Seo
+Blue | Susanne (Monster Prom)                       = Susanne
+Blue | Vicky (Monster Prom)                         = Vicky
+Calculester Hewlett-Packard                         = Calculester Hewlett-Packard
+Dahlia Aquino                                       = Dahlia Aquino
+Damien LaVey                                        = Damien LaVey
+Faith (Monster Prom)                                = Faith
+Green | Brian (Monster Prom)                        = Brian
+Green | Isis (Monster Prom)                         = Isis
+Green | Noodles (Monster Prom)                      = Noodles
+Hope (Monster Prom)                                 = Hope
+Joy (Monster Prom)                                  = Joy
+Liam de Lioncourt                                   = Liam de Lioncourt
+Milo Belladonna                                     = Milo Belladonna
+Miranda Vanderbilt                                  = Miranda Vanderbilt
+Modeus (Helltaker)                                  = Modeus
+Polly Geist                                         = Polly Geist
+Red | Abby (Monster Prom)                           = Abby
+Red | Amira (Monster Prom)                          = Amira
+Red | Sawyer (Monster Prom)                         = Sawyer
+Scott Howl                                          = Scott Howl
+Tate (Monster Prom)                                 = Tate
+Valerie Oberlin                                     = Valerie Oberlin
+Vera Oberlin                                        = Vera Oberlin
+Violet (Monster Prom)                               = Violet
+Yellow | Abdu (Monster Prom)                        = Abdu
+Yellow | Oz (Monster Prom)                          = Oz
+Yellow | Riona (Monster Prom)                       = Riona
+Z’gord | Zoe                                        = Zoe
 
 #   My Hero Academia
 Nedzu (My Hero Academia)                            = Nezu
@@ -474,5 +620,22 @@ Myles the Mandalorian (Star Wars)                   = Myles
 Silas the Mandalorian (Star Wars)                   = Silas
 
 #   Worm
+Aisha Laborn | Imp                                  = Aisha Laborn
+Alec | Regent                                       = Alec
+Bakuda (Parahumans)                                 = Bakuda
+Bastard Son (Parahumans)                            = Bastard Son
+Butcher (Parahumans)                                = Butcher
+David | Eidolon                                     = David
+Dean Stansfield | Gallant                           = Dean Stansfield
+Doctor Mother (Parahumans)                          = Doctor Mother
+Forrest (Parahumans)                                = Forrest
+Kurt Wynn | Number Man | Harbinger                  = Kurt Wynn
+Marissa Newland | Sundancer                         = Marissa Newland
+Rachel Lindt | Bitch | Hellhound                    = Rachel Lindt
+Rune (Parahumans)                                   = Rune
+Slaughterhouse Nine                                 = Slaughterhouse Nine
+String Theory (Parahumans)                          = String Theory
+Undersiders (Parahumans)                            = Undersiders
+Vex (Parahumans)                                    = Vex
 Weaver                                              = Taylor Hebert
 
