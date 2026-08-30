@@ -317,6 +317,8 @@ def list_books(q: str = Query(default=""), num: int = 50, offset: int = 0,
             "formats": m.get("formats"),
             # calibre's own page count; 0 where it has never computed one.
             "pages": m.get("pages"),
+            # calibre.row_field, shown where a book with a series shows that.
+            "row_values": _field_values(m, cfg.calibre.row_field),
         })
     return {"total": res.get("total_num"), "books": books}
 
