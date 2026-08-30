@@ -173,6 +173,10 @@ function renderEvents(events) {
 // evaluated. The built-in list is the fallback for an unconfigured install:
 // Fandom (the Fanfiction library's column) leads, and anything writable but
 // unlisted keeps its natural order after these.
+// calibre's lookup name for the description. It has no editor — it is the
+// site's own HTML, shown read-only — but it takes a place in the configured
+// order like any other field, so a column can be put below it.
+const DESCRIPTION_FIELD = "comments";
 const DEFAULT_ORDER = () => ["#fandom", state.genreField, "tags", "#readinglist"];
 const fieldOrder = () =>
   (state.editable || []).length ? state.editable : DEFAULT_ORDER();
@@ -197,6 +201,10 @@ export function editableColumns(meta) {
     cols.push({field, label: info.name || field, multi, value,
                enumVals, catName: catNameFor(field)});
   }
+  // Last in this list, so an install that has not configured an order still
+  // shows the description after the editors, where it has always been.
+  if ((meta.comments || "").trim())
+    cols.push({field: DESCRIPTION_FIELD, label: "Description", description: true});
   const order = fieldOrder();
   // Configured explicitly: the list is the whole selection, so a writable
   // column left out of it gets no editor. Unconfigured: the list only ranks,
@@ -321,12 +329,12 @@ function renderDescription(host, meta) {
 function renderEditors(meta) {
   const host = $("dFields");
   for (const col of editableColumns(meta)) {
+    if (col.description) { renderDescription(host, meta); continue; }
     const fs = fieldShell(col.field, col.label, summaryOf(col));
     if (col.multi) renderMultiEditor(fs, col);
     else renderSingleEditor(fs, col);
     host.append(fs);
   }
-  renderDescription(host, meta);
 }
 
 function renderMultiEditor(fs, col) {

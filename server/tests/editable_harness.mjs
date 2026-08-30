@@ -45,4 +45,21 @@ out.unknown_field_ignored = fields();
 state.editable = ["#downloaded", "tags"];
 out.bool_column_skipped = fields();
 
+// The description is orderable like any other field, so something can sit
+// below it — but it is not an editor and appears only when the book has one.
+const WITH_DESC = Object.assign({}, META, {comments: "<p>A blurb.</p>"});
+const descFields = () => editableColumns(WITH_DESC).map(c => c.field);
+
+state.writable = ["title", "tags", "rating", "#*"];
+state.editable = [];
+out.description_last_by_default = descFields();
+
+state.editable = ["#fandom", "#majchar", "#genre", "tags", "comments", "#readinglist"];
+out.description_takes_its_place = descFields();
+out.description_absent_when_empty = fields();      // META has no comments
+
+// A configured list that omits it hides it, as for any other field.
+state.editable = ["tags", "#genre"];
+out.description_omitted = descFields();
+
 process.stdout.write(JSON.stringify(out));

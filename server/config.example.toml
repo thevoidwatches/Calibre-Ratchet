@@ -27,13 +27,16 @@ genre_field = "#genre"     # custom column shown beside tags in the book list
 writable_fields = ["title", "tags", "rating", "#*"]   # fnmatch patterns for POST /fields
                            # this is the permission boundary — the endpoint
                            # refuses to write anything not matching
-editable_fields = []       # which columns the book page offers editors for, in
-                           # the order shown. Exact lookup names, not patterns.
+editable_fields = []       # which fields the book page shows, in the order
+                           # shown. Exact lookup names, not patterns.
                            # [] = every writable text/enumeration column, with
-                           # fandom/genre/tags/reading list first. Listing a
-                           # field here does not grant permission to write it;
-                           # it still has to pass writable_fields above. e.g.
-                           # ["#fandom", "#genre", "#majchar", "tags", "#readinglist"]
+                           # fandom/genre/tags/reading list first and the
+                           # description last. Listing a field here does not
+                           # grant permission to write it; it still has to
+                           # pass writable_fields above. "comments" is the
+                           # read-only description — include it to place it,
+                           # leave it out of a configured list to hide it. e.g.
+                           # ["#fandom", "#majchar", "#genre", "tags", "comments", "#readinglist"]
 
 [fanficfare]
 binary = "fanficfare"      # leave as-is: if not on PATH (unactivated venv), Ratchet
