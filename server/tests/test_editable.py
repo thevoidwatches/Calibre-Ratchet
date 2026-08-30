@@ -53,6 +53,25 @@ def test_non_text_columns_never_get_an_editor(e):
     assert e["bool_column_skipped"] == ["tags"]
 
 
+def test_the_description_is_ordered_like_any_other_field(e):
+    """It has no editor, but it has a place — so a column can be put below
+    it, which is impossible while it is pinned to the bottom."""
+    assert e["description_takes_its_place"] == [
+        "#fandom", "#majchar", "#genre", "tags", "comments", "#readinglist"]
+
+
+def test_an_unconfigured_page_still_ends_with_the_description(e):
+    assert e["description_last_by_default"][-1] == "comments"
+
+
+def test_a_book_without_a_description_has_no_slot_for_one(e):
+    assert "comments" not in e["description_absent_when_empty"]
+
+
+def test_a_configured_list_that_omits_the_description_hides_it(e):
+    assert e["description_omitted"] == ["tags", "#genre"]
+
+
 def test_ui_config_publishes_the_setting():
     body = client.get("/ui-config", headers=TOK).json()
     assert body["editable_fields"] == []          # unset in the test config
