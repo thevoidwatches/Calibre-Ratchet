@@ -108,7 +108,23 @@ export const apiJson = async (path, opts) => (await api(path, opts)).json();
 
 const VIEWS = {token: "vToken", browse: "vBrowse", pickcol: "vPickCol",
                pickval: "vPickVal", detail: "vDetail"};
+
+// A history entry sitting underneath every view, so that backing out of the
+// first one is something this app sees rather than the shell closing.
+export const ROOT_ENTRY = "__root";
+
+/** Where the back button goes from a given view, or null to leave the app.
+ *
+ *  Backing out of a sub-view lands on the book list rather than retracing the
+ *  path to it: "back" from a filter screen means "never mind", and the list is
+ *  what that returns to. The list is the top of the app, so back leaves from
+ *  there, which is what Android users expect of a home screen. */
+export function viewBehind(view) {
+  return (view === "browse" || view === "token") ? null : "browse";
+}
+
 let currentView = null;
+export const viewNow = () => currentView;
 export function show(name, push = true) {
   for (const v of Object.values(VIEWS)) $(v).hidden = true;
   $(VIEWS[name]).hidden = false;

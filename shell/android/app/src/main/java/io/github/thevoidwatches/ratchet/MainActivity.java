@@ -3,6 +3,8 @@ package io.github.thevoidwatches.ratchet;
 import android.content.Intent;
 import android.os.Bundle;
 
+import androidx.activity.OnBackPressedCallback;
+
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
@@ -37,6 +39,34 @@ public class MainActivity extends BridgeActivity {
             getBridge().getWebView().setWebChromeClient(
                     new RatchetChromeClient(getBridge()));
         }
+        handOverBackButton();
+    }
+
+    /** Send the back button to the page before letting it close the app.
+     *
+     *  Capacitor 8 registers nothing for the back button, so without this the
+     *  press reaches the activity and finishes it -- from any screen, however
+     *  deep. The web app keeps its own history, so the WebView knows whether
+     *  there is somewhere to go back to; only when there is not does this fall
+     *  through to the default, which closes Ratchet as it should from the
+     *  book list.
+     */
+    private void handOverBackButton() {
+        if (getBridge() == null) return;
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (getBridge() != null && getBridge().getWebView().canGoBack()) {
+                    getBridge().getWebView().goBack();
+                    return;
+                }
+                // Nothing left in the page's history: step aside and let the
+                // activity's own handling finish the app.
+                setEnabled(false);
+                getOnBackPressedDispatcher().onBackPressed();
+                setEnabled(true);
+            }
+        });
     }
 
     @Override
