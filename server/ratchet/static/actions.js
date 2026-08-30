@@ -1,7 +1,7 @@
 // Check / Update / epub download + decision rendering.
 "use strict";
 import { $, state, api, apiJson, err, clearErr } from "./core.js";
-import { epubFilename } from "./format.js";
+import { epubFilename, progressLabel } from "./format.js";
 import { inShell, statBook, saveBookToDevice, deleteBookFromDevice,
          deviceCopyIsStale, openBookInReader } from "./storage.js";
 import { play, playForDecision } from "./sfx.js";
@@ -14,11 +14,76 @@ export function setUpdateAvailable(available) {
   $("btnUpdate").classList.toggle("primary", available);
 }
 
-function busy(msg) {
-  $("busy").hidden = !msg;
-  $("busy").textContent = msg || "";
+// What the busy box shows, one line each. Page-bound operations (check,
+// update, convert, delete, open) lock the buttons on every page while they
+// run, as they always have; downloads lock only their own book's, so other
+// books can be fetched or read meanwhile. Both are keyed by book: the box
+// sits on every book's page and stays up while the user browses on, so a
+// line names its book whenever the open page is another's, and one thing
+// finishing never clears another's line.
+const operations = new Map();     // id -> {id, title, text}
+const downloads = new Map();      // id -> {id, title, bytes, total}
+
+/** "“Title” " when the open page is not book `id`'s own; "" when it is. */
+function whose(id, title) {
+  if (state.bookId === id) return "";
+  return "“" + (title || "book " + id) + "” ";
+}
+
+/** Redraw the busy box from what is in flight, and lock or free the open
+ *  page's buttons accordingly. */
+function renderBusy() {
+  const box = $("busy");
+  box.replaceChildren();
+  const line = (text, bytes, total) => {
+    const row = document.createElement("div");
+    row.className = "busyline";
+    const span = document.createElement("span");
+    span.textContent = text;
+    row.append(span);
+    if (total) {
+      const bar = document.createElement("progress");
+      bar.max = total;
+      bar.value = Math.min(bytes, total);
+      row.append(bar);
+    }
+    box.append(row);
+  };
+  for (const o of operations.values()) line(whose(o.id, o.title) + o.text);
+  for (const d of downloads.values()) {
+    const text = "downloading " + whose(d.id, d.title) + "to this device…";
+    line(d.bytes || d.total ? text + " " + progressLabel(d.bytes, d.total) : text,
+         d.bytes, d.total);
+  }
+  box.hidden = !box.childElementCount;
+  const locked = operations.size > 0 || downloads.has(state.bookId);
   for (const id of ["btnRead", "btnCheck", "btnUpdate", "btnConvert", "btnEpub"])
-    $(id).disabled = !!msg;
+    $(id).disabled = locked;
+}
+
+/** Show `text` for a page-bound operation on book `id`; call the returned
+ *  function when it ends. */
+function busy(id, title, text) {
+  operations.set(id, {id, title, text});
+  renderBusy();
+  return () => { operations.delete(id); renderBusy(); };
+}
+
+/** Fetch book `id` to the device, its line in the busy box following along. */
+async function downloadToDevice(id, meta) {
+  const d = {id, title: meta.title, bytes: 0, total: 0};
+  downloads.set(id, d);
+  renderBusy();
+  try {
+    await saveBookToDevice(meta, (bytes, total) => {
+      d.bytes = bytes;
+      d.total = total;
+      renderBusy();
+    });
+  } finally {
+    downloads.delete(id);
+    renderBusy();
+  }
 }
 
 /** Set the action buttons up for the open book: Check/Update or Convert per
@@ -26,6 +91,10 @@ function busy(msg) {
  *  Delete while a device copy exists. */
 export async function refreshActions() {
   const meta = state.bookMeta || {};
+  // A page opened while things are in flight: relabel the box for this page
+  // and apply its lock at once, rather than at the next progress event —
+  // which a stalled download never sends.
+  renderBusy();
   // Hidden until the server says which mode this book is in: FFF-managed
   // (Check/Update), site-sourced but not FFF-made (Convert), or neither.
   // The epub itself is the authority — no metadata column involved.
@@ -88,31 +157,35 @@ function renderDecision(d) {
 }
 
 $("btnCheck").onclick = async () => {
-  clearErr(); busy("checking against the site…");
+  clearErr();
+  const id = state.bookId, meta = state.bookMeta || {};
+  const done = busy(id, meta.title, "checking against the site…");
   try {
-    const d = await apiJson("/books/" + state.bookId + "/check", {method: "POST"});
+    const d = await apiJson("/books/" + id + "/check", {method: "POST"});
     renderDecision(d);
     setUpdateAvailable(d.action === "update");
     // A check writes nothing, so "success" would overstate it; only a refusal
     // — the thing worth hearing about — gets its own sound.
     playForDecision(d);
   }
-  catch (e) { err("check failed — " + e.message); play("error"); }
-  finally { busy(null); }
+  catch (e) { err(whose(id, meta.title) + "check failed — " + e.message); play("error"); }
+  finally { done(); }
 };
 
 $("btnUpdate").onclick = async () => {
   if (!confirm("Fetch new chapters and update this epub in calibre?")) return;
   clearErr();
-  busy("updating — big serials can take minutes; leave this page open…");
+  const id = state.bookId, meta = state.bookMeta || {};
+  const done = busy(id, meta.title,
+                    "updating — big serials can take minutes; leave this page open…");
   try {
-    const d = await apiJson("/books/" + state.bookId + "/update", {method: "POST"});
+    const d = await apiJson("/books/" + id + "/update", {method: "POST"});
     renderDecision(d);
     setUpdateAvailable(false);   // whatever was pending has now been applied
     playForDecision(d);
   }
-  catch (e) { err("update failed — " + e.message); play("error"); }
-  finally { busy(null); }
+  catch (e) { err(whose(id, meta.title) + "update failed — " + e.message); play("error"); }
+  finally { done(); }
 };
 
 /** Save the epub, letting the browser choose a destination folder where it can.
@@ -149,17 +222,19 @@ async function saveEpub(blob, filename) {
  *  is missing — the same path every time, so Moon+ keeps its position. */
 $("btnRead").onclick = async () => {
   clearErr();
-  const meta = state.bookMeta;
+  const id = state.bookId, meta = state.bookMeta;
   try {
     if (await deviceCopyIsStale(meta)) {
-      busy("downloading to this device…");
-      await saveBookToDevice(meta);
+      await downloadToDevice(id, meta);
       await refreshActions();
     }
-    busy("opening…");
-    await openBookInReader(meta);
-  } catch (e) { err("could not open — " + e.message); play("error"); }
-  finally { busy(null); }
+    const done = busy(id, meta.title, "opening…");
+    try { await openBookInReader(meta); }
+    finally { done(); }
+  } catch (e) {
+    err(whose(id, meta.title) + "could not open — " + e.message);
+    play("error");
+  }
 };
 
 $("btnConvert").onclick = async () => {
@@ -169,9 +244,11 @@ $("btnConvert").onclick = async () => {
       "cannot check for chapters the author may have deleted. Afterwards the " +
       "book is fully managed and protected.")) return;
   clearErr();
-  busy("downloading a fresh copy from the site — this can take minutes…");
+  const id = state.bookId, meta = state.bookMeta || {};
+  const done = busy(id, meta.title,
+                    "downloading a fresh copy from the site — this can take minutes…");
   try {
-    const d = await apiJson("/books/" + state.bookId + "/convert", {method: "POST"});
+    const d = await apiJson("/books/" + id + "/convert", {method: "POST"});
     const box = $("decision"); box.hidden = false;
     box.innerHTML = "";
     const head = document.createElement("div");
@@ -182,34 +259,34 @@ $("btnConvert").onclick = async () => {
     box.append(head);
     play("success");
     refreshActions();     // Check/Update take this button's place
-  } catch (e) { err("convert failed — " + e.message); play("error"); }
-  finally { busy(null); }
+  } catch (e) { err(whose(id, meta.title) + "convert failed — " + e.message); play("error"); }
+  finally { done(); }
 };
 
 $("btnEpub").onclick = async () => {
   clearErr();
-  const meta = state.bookMeta || {id: state.bookId};
+  const id = state.bookId;
+  const meta = state.bookMeta || {id};
   // In the shell this button manages the device copy: fetch it when absent,
   // delete it when present (re-fetching is then one more tap).
   if (inShell()) {
     try {
       if (await statBook(meta)) {
         if (!confirm("Delete this book's file from the device?")) return;
-        busy("deleting…");
-        await deleteBookFromDevice(meta);
+        const done = busy(id, meta.title, "deleting…");
+        try { await deleteBookFromDevice(meta); }
+        finally { done(); }
       } else {
-        busy("downloading to this device…");
-        await saveBookToDevice(meta);
+        await downloadToDevice(id, meta);
       }
       await refreshActions();
       play("success");
-    } catch (e) { err("failed — " + e.message); play("error"); }
-    finally { busy(null); }
+    } catch (e) { err(whose(id, meta.title) + "failed — " + e.message); play("error"); }
     return;
   }
-  busy("downloading epub…");
+  const done = busy(id, meta.title, "downloading epub…");
   try {
-    const blob = await (await api("/books/" + state.bookId + "/epub")).blob();
+    const blob = await (await api("/books/" + id + "/epub")).blob();
     await saveEpub(blob, epubFilename(meta));
     play("success");
   } catch (e) {
@@ -218,5 +295,5 @@ $("btnEpub").onclick = async () => {
     err("download failed — " + e.message);
     play("error");
   }
-  finally { busy(null); }
+  finally { done(); }
 };

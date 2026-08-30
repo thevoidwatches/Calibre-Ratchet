@@ -130,6 +130,15 @@ export function visibleValues(all, present, showAll, typed) {
  *  not. calibre fills the count in when a book's format is written, so an
  *  older book that has never been updated reports 0 — which means unknown
  *  here, not empty. */
+/** How far a download has got, for the busy line: "41% — 360 of 877 MB"
+ *  when the total is known, "360 MB so far" when it is not. */
+export function progressLabel(bytes, total) {
+  const mb = n => (n / 1e6).toFixed(n < 10e6 ? 1 : 0);
+  if (!total) return mb(bytes) + " MB so far";
+  return Math.floor(100 * Math.min(bytes, total) / total) + "% — " +
+         mb(bytes) + " of " + mb(total) + " MB";
+}
+
 export function pageLabel(pages) {
   const n = Number(pages);
   if (!Number.isFinite(n) || n <= 0) return "";

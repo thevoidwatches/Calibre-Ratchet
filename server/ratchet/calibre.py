@@ -61,26 +61,41 @@ class CalibreClient:
         lib = self.lib if library_id is None else library_id.strip()
         return f"/{lib}" if lib else ""
 
-    def _request(self, method: str, path: str, **kw) -> httpx.Response:
+    def _request(self, method: str, path: str, stream: bool = False,
+                 **kw) -> httpx.Response:
+        """One request, with calibre's auth scheme learned on first contact.
+
+        With `stream` the body is left unread: the caller iterates
+        `iter_bytes()` and closes the response, so a big format never sits in
+        memory here. An error body is read in full either way — it is the
+        only explanation calibre gives.
+        """
         url = self.base + path
-        try:
-            r = self._client.request(method, url, auth=self._auth_choice, **kw)
-        except httpx.HTTPError as e:
-            # Server down, DNS gone, timeout: report it as a calibre problem so
-            # callers return a clean 502 instead of an unhandled traceback.
-            raise CalibreError(f"cannot reach calibre at {self.base}: {e}") from e
+
+        def attempt() -> httpx.Response:
+            try:
+                return self._client.send(
+                    self._client.build_request(method, url, **kw),
+                    auth=self._auth_choice, stream=stream)
+            except httpx.HTTPError as e:
+                # Server down, DNS gone, timeout: report it as a calibre problem so
+                # callers return a clean 502 instead of an unhandled traceback.
+                raise CalibreError(f"cannot reach calibre at {self.base}: {e}") from e
+
+        r = attempt()
         if r.status_code == 401 and self._creds and self._auth_choice is None:
             challenge = r.headers.get("www-authenticate", "")
             if challenge.lower().startswith("digest"):
                 self._auth_choice = httpx.DigestAuth(*self._creds)
             else:
                 self._auth_choice = httpx.BasicAuth(*self._creds)
-            try:
-                r = self._client.request(method, url, auth=self._auth_choice, **kw)
-            except httpx.HTTPError as e:
-                raise CalibreError(f"cannot reach calibre at {self.base}: {e}") from e
+            r.close()
+            r = attempt()
         if r.status_code >= 400:
-            raise CalibreError(f"{method} {path} -> {r.status_code}: {r.text[:300]}")
+            r.read()
+            detail = r.text[:300]
+            r.close()
+            raise CalibreError(f"{method} {path} -> {r.status_code}: {detail}")
         return r
 
     # -- reads -------------------------------------------------------------
@@ -124,6 +139,15 @@ class CalibreClient:
                         library_id: str | None = None) -> bytes:
         return self._request(
             "GET", f"/get/{fmt}/{book_id}{self._lib_suffix(library_id)}").content
+
+    def open_format(self, book_id: int, fmt: str = "EPUB",
+                    library_id: str | None = None) -> httpx.Response:
+        """The format as an open streaming response: iterate `iter_bytes()`,
+        then close it. Its Content-Length is calibre's own, ready to pass on
+        to whoever is being served the file."""
+        return self._request(
+            "GET", f"/get/{fmt}/{book_id}{self._lib_suffix(library_id)}",
+            stream=True)
 
     def cover(self, book_id: int, library_id: str | None = None,
               size: str = "") -> tuple[bytes, str]:
