@@ -61,6 +61,9 @@ NAME_FIXES = {
     "Indepdendent": "Independent",
     "Jeff WInger": "Jeff Winger",
     "Watson": "John Watson",
+    "Dresden FIles": "Dresden Files",
+    "Balder's Gate": "Baldur's Gate",
+    "Disassociation": "Dissociation",
     # name order: the library is overwhelmingly Western-order
     "Midoriya Izuku": "Izuku Midoriya",
     "Yagi Toshinori": "Toshinori Yagi",
