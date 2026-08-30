@@ -91,6 +91,10 @@ SORT_OPTIONS = [
     {"key": "series",   "label": "Series",        "calibre": "series"},
     {"key": "author",   "label": "Author",        "calibre": "authors,series"},
     {"key": "modified", "label": "Last modified", "calibre": "last_modified"},
+    # calibre works this out itself when a book's format is written, so it is
+    # only filled in for books added or updated since that feature arrived —
+    # the rest sort as zero rather than as unknown.
+    {"key": "pages",    "label": "Pages",         "calibre": "pages"},
 ]
 _SORT_BY_KEY = {o["key"]: o["calibre"] for o in SORT_OPTIONS}
 DEFAULT_SORT = "modified"
@@ -283,6 +287,8 @@ def list_books(q: str = Query(default=""), num: int = 50, offset: int = 0,
             "series": m.get("series"),
             "series_index": m.get("series_index"),
             "formats": m.get("formats"),
+            # calibre's own page count; 0 where it has never computed one.
+            "pages": m.get("pages"),
         })
     return {"total": res.get("total_num"), "books": books}
 

@@ -124,3 +124,14 @@ export function visibleValues(all, present, showAll, typed) {
   const q = String(typed || "").trim().toLowerCase();
   return q ? scoped.filter(v => v.toLowerCase().includes(q)) : scoped;
 }
+
+
+/** "312 pages" for a book calibre has measured, and nothing for one it has
+ *  not. calibre fills the count in when a book's format is written, so an
+ *  older book that has never been updated reports 0 — which means unknown
+ *  here, not empty. */
+export function pageLabel(pages) {
+  const n = Number(pages);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  return n === 1 ? "1 page" : n.toLocaleString() + " pages";
+}
