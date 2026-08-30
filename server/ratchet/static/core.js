@@ -142,16 +142,36 @@ export function viewBehind(view) {
 
 let currentView = null;
 export const viewNow = () => currentView;
+
+// How far down the book list was when it was last left. It is the one view
+// worth returning to where you were: a long list you scroll, step into a book
+// from, and come straight back to — losing the place means finding it again
+// on every book. The other views are short, or built fresh each time, so they
+// start at the top.
+let browseScroll = 0;
+
+/** Forget where the book list was, so it opens at the top. Called when the
+ *  results are replaced — a new search is a new list, and the old offset
+ *  would point into someone else's books. */
+export function forgetBrowseScroll() { browseScroll = 0; }
+
 export function show(name, push = true) {
+  const from = currentView;
+  // Read before the section is hidden, while the page still has its height.
+  if (from === "browse" && name !== from) browseScroll = window.scrollY || 0;
   for (const v of Object.values(VIEWS)) $(v).hidden = true;
   $(VIEWS[name]).hidden = false;
-  window.scrollTo(0, 0);
   // Announced rather than sounded here, for the same reason as the 401 above:
   // sfx.js imports this module, so it listens instead of being called.
   // Skipped for the very first view, which is the app opening rather than a
   // move between pages.
-  if (name !== currentView) {
-    const from = currentView;
+  if (name !== from) {
+    const y = name === "browse" ? browseScroll : 0;
+    window.scrollTo(0, y);
+    // The section was hidden a moment ago, so the page may not have its full
+    // height back yet and the scroll above would be clamped short. Re-apply
+    // once the browser has laid the frame out.
+    if (y) requestAnimationFrame(() => window.scrollTo(0, y));
     currentView = name;
     if (from !== null)
       window.dispatchEvent(new CustomEvent(VIEW_CHANGED_EVENT, {detail: {view: name}}));

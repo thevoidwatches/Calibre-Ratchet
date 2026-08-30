@@ -1,6 +1,6 @@
 // Browse view: filter chips -> calibre search query -> results list.
 "use strict";
-import { $, state, apiJson, err, clearErr, show,
+import { $, state, apiJson, err, clearErr, show, forgetBrowseScroll,
          FILTER_BY_EVENT, PICK_FILTER_EVENT } from "./core.js";
 import { seriesLabel, pageLabel } from "./format.js";
 import { buildQuery, describeFilters, isDownloadedAtom, isPresetAtom } from "./query.js";
@@ -106,7 +106,14 @@ export function renderFilterChips() {
 export async function search(more = false) {
   clearErr();
   const q = await fullQuery();
-  if (!more) { state.offset = 0; $("results").innerHTML = ""; }
+  // A fresh search replaces the list, so the place kept for coming back from
+  // a book no longer means anything. "more" appends, and keeps it.
+  if (!more) {
+    state.offset = 0;
+    $("results").innerHTML = "";
+    forgetBrowseScroll();
+    window.scrollTo(0, 0);
+  }
   try {
     const data = await apiJson("/books?q=" + encodeURIComponent(q) +
                                "&num=30&offset=" + state.offset +
