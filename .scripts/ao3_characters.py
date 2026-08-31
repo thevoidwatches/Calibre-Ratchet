@@ -63,7 +63,10 @@ import _tagtool  # noqa: E402
 from ratchet.calibre import CalibreClient, CalibreError  # noqa: E402
 from ratchet.config import load_config  # noqa: E402
 
-FIELD = "#majchar"
+# Set from config.toml at startup: the columns this library keeps its
+# characters and its fandoms in.
+FIELD = ""
+FANDOM_FIELD = ""
 REVIEW = Path(__file__).with_name("ao3_names.txt")
 NOT_A_CHARACTER = "-"
 
@@ -296,7 +299,7 @@ def split_value(value: str) -> tuple[str, str]:
 def fandom_roots(meta: dict) -> list[str]:
     """Every fandom this book is filed under, at root level, in order."""
     roots: list[str] = []
-    for value in _tagtool.current(meta, "#fandom"):
+    for value in _tagtool.current(meta, FANDOM_FIELD):
         root = fandom_root(value)
         if root not in roots:
             roots.append(root)
@@ -600,6 +603,12 @@ if __name__ == "__main__":
     ap.add_argument("--review", action="store_true",
                     help="write ao3_names.txt and stop")
     parsed = ap.parse_args()
+    _cfg = load_config(parsed.config)
+    FIELD = _cfg.scripts.majchar_field
+    FANDOM_FIELD = _cfg.scripts.fandom_field
+    if not FIELD:
+        raise SystemExit(f"scripts.majchar_field is not set in {parsed.config}; "
+                         "there is nowhere to put the characters found.")
     if parsed.review:
         raise SystemExit(write_review(parsed))
     prepare.config, prepare.library = parsed.config, parsed.library
