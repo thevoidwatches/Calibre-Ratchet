@@ -243,8 +243,26 @@ button.small.icon { min-width: 40px; padding: 6px 8px; }
 .list li .byline .len:empty { display: none; }
 
 /* Book list: genres on the left, tags on the right, both italic. */
-.list li .meta { display: flex; justify-content: space-between; gap: 10px;
+.list li .meta { --gap: 10px;
+                 display: flex; justify-content: space-between; gap: var(--gap);
                  font-style: italic; font-size: 0.85rem; margin-top: 2px; }
+/* A hierarchical value is a single unbreakable word —
+   "Nonfiction.Informational.Science.Physics.Astrophysics" is fifty-three
+   characters with nowhere to wrap — and a flex item will not shrink below
+   its longest word. Left alone, one such tag makes the row wider than the
+   phone and the whole page scrolls sideways to reach it. "anywhere" rather
+   than "break-word" because only that one counts towards how far the item
+   can shrink; break-word would wrap the text and still leave the row wide. */
+.list li .meta .genres,
+.list li .meta .tags { min-width: 0; overflow-wrap: anywhere; }
+/* Neither side may be squeezed past half the other. Flex hands out the room
+   in proportion to how much each side has to say, so one long line of tags
+   beside a single genre leaves the genre a column a word wide — and at that
+   width no break point helps, because the word itself no longer fits and it
+   comes apart letter by letter. A third of the row is the floor, which caps
+   the other side at two thirds. A side with nothing in it keeps its zero
+   width, so the other still gets the whole row. */
+.list li .meta > :not(:empty) { min-width: calc((100% - var(--gap)) / 3); }
 .list li .meta .genres { text-align: left; }
 .list li .meta .tags { text-align: right; }
 .list li .meta span:empty { display: none; }
