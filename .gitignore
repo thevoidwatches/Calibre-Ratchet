@@ -20,3 +20,16 @@ shell/android/.gradle/
 shell/android/build/
 shell/android/app/build/
 shell/android/local.properties
+
+# Maintenance scripts that encode one library's own tag taxonomy rather than
+# doing something general — its misspellings, where its tag roots moved, which
+# fandom each of its characters belongs to. Kept in .scripts/ so they can be
+# run, untracked because they describe a library rather than being tools.
+# See .scripts/README.md.
+/.scripts/normalize_tags.py
+/.scripts/regroup_tags.py
+/.scripts/major_characters.py
+/.scripts/fill_fandom.py
+# ...and the decisions made with the scripts that ARE tracked.
+/.scripts/ao3_names.txt
+/.scripts/stray_tags.txt

@@ -92,7 +92,12 @@ def main() -> None:
             break
         ids.extend(batch)
         offset += len(batch)
-    print(f"{len(ids)} book(s) in {args.library}")
+    field = cfg.scripts.downloaded_field
+    if not field:
+        # Guessing at a column name here would write true into whatever
+        # column happened to answer to it.
+        raise SystemExit(f"scripts.downloaded_field is not set in {args.config}")
+    print(f"{len(ids)} book(s) in {args.library}, marking {field}")
 
     detected: list[tuple[int, str, str]] = []   # (id, reason, title)
     undetected: list[tuple[int, str]] = []
@@ -102,10 +107,10 @@ def main() -> None:
         meta = cal.book(bid)
         title = (meta.get("title") or "")[:60]
         um = meta.get("user_metadata", {})
-        if "#downloaded" not in um:
+        if field not in um:
             no_column += 1
             continue
-        if um["#downloaded"].get("#value#") is True:
+        if um[field].get("#value#") is True:
             already += 1
             continue
 
@@ -135,7 +140,7 @@ def main() -> None:
             else:
                 undetected.append((bid, title))
 
-    print(f"\nalready true: {already}   no #downloaded column: {no_column}   "
+    print(f"\nalready true: {already}   no {field} column: {no_column}   "
           f"no epub: {no_epub}")
     reasons: dict[str, int] = {}
     for _, reason, _t in detected:
@@ -152,8 +157,8 @@ def main() -> None:
         return
 
     for bid, _reason, _title in detected:
-        cal.set_fields(bid, {"#downloaded": True})
-    print(f"\nwrote #downloaded=true on {len(detected)} book(s)")
+        cal.set_fields(bid, {field: True})
+    print(f"\nwrote {field}=true on {len(detected)} book(s)")
 
 
 if __name__ == "__main__":

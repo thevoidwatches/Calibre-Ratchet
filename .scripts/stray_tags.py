@@ -48,16 +48,29 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import _tagtool  # noqa: E402
-import major_characters as mc  # noqa: E402
+from ratchet.calibre import CalibreClient  # noqa: E402
+from ratchet.config import load_config  # noqa: E402
 
 REVIEW = Path(__file__).with_name("stray_tags.txt")
 DELETE = "-"
 
-# Roots the hierarchical scheme owns. Anything else came from a site.
-SCHEME_ROOTS = set(mc.ROOTS) | {"Content", "Format", "Themes", "Relative Time",
-                                "Time Period", "Group Traits"}
-# Where a "kind: value" decision sends the value.
-COLUMNS = {"genre": "#genre", "fandom": "#fandom", "majchar": "#majchar"}
+# Filled from config.toml on the way in: which tag roots this library's own
+# scheme owns, and which column each "kind: value" decision writes to. Both
+# describe a particular library rather than anything universal, which is why
+# they are configuration and not code.
+SCHEME_ROOTS: set[str] = set()
+COLUMNS: dict[str, str] = {}
+
+
+def configure(cfg) -> None:
+    """Adopt the columns and tag roots this library uses."""
+    global SCHEME_ROOTS
+    SCHEME_ROOTS = set(cfg.scripts.scheme_roots)
+    for kind, field in (("genre", cfg.calibre.genre_field),
+                        ("fandom", cfg.scripts.fandom_field),
+                        ("majchar", cfg.scripts.majchar_field)):
+        if field:
+            COLUMNS[kind] = field
 
 
 def is_stray(tag: str) -> bool:
@@ -136,8 +149,6 @@ def transform(meta: dict) -> dict:
 
 
 def write_review(args) -> int:
-    from ratchet.calibre import CalibreClient
-    from ratchet.config import load_config
     cfg = load_config(args.config)
     calibre = CalibreClient(cfg.calibre.base_url, "", cfg.calibre.username,
                             cfg.calibre.password)
@@ -180,8 +191,9 @@ def write_review(args) -> int:
     for book in sorted(bybook):
         meta = metas[str(book)]
         lines.append(f"#   {book}  {(meta.get('title') or '')[:46]}")
-        lines.append(f"#     fandom={_tagtool.current(meta, '#fandom')}  "
-                     f"genre={_tagtool.current(meta, '#genre')}")
+        shown = " ".join(f"{kind}={_tagtool.current(meta, COLUMNS[kind])}"
+                         for kind in ("fandom", "genre") if kind in COLUMNS)
+        lines.append(f"#     {shown}")
         for tag in sorted(bybook[book]):
             lines.append(f"{tag.ljust(width)}= {decided.get(tag, '')}")
         lines.append("")
@@ -210,6 +222,13 @@ if __name__ == "__main__":
     ap.add_argument("--review", action="store_true",
                     help="write stray_tags.txt and stop")
     parsed = ap.parse_args()
+    configure(load_config(parsed.config))
+    if not SCHEME_ROOTS:
+        raise SystemExit(
+            "scripts.scheme_roots is empty in " + parsed.config + ", so there "
+            "is no way to tell a tag you filed from one a site supplied — "
+            "every tag in the library would count as stray. List the top-level "
+            "names your own scheme uses and run this again.")
     if parsed.review:
         raise SystemExit(write_review(parsed))
     raise SystemExit(_tagtool.run_multi(parsed, transform, "stray-rollback",

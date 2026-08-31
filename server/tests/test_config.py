@@ -78,3 +78,30 @@ def test_bind_host_property(tmp_path, monkeypatch):
     cfg = c.load_config(cfg_path)
     assert cfg.service.host == "tailscale"     # config keeps the symbolic value
     assert cfg.bind_host == "100.9.9.9"        # resolved only when binding
+
+
+def test_the_scripts_section_defaults_to_the_usual_column_names(tmp_path):
+    """The maintenance scripts read this; the service never does. A config
+    that says nothing about it still loads."""
+    cfg = load_config(_write_config(tmp_path))
+    assert cfg.scripts.fandom_field == "#fandom"
+    assert cfg.scripts.majchar_field == "#majchar"
+    assert cfg.scripts.downloaded_field == "#downloaded"
+
+
+def test_a_library_names_its_own_tag_roots(tmp_path):
+    """scheme_roots describes one library, so it has no useful default: a
+    script that needs it refuses rather than treating every tag as stray."""
+    cfg = load_config(_write_config(tmp_path))
+    assert cfg.scripts.scheme_roots == []
+
+    path = tmp_path / "own.toml"
+    path.write_text(
+        f'[service]\nauth_token = "tok"\ndata_dir = "{(tmp_path / "d").as_posix()}"\n'
+        '[scripts]\nscheme_roots = ["Tropes", "Content"]\n'
+        'majchar_field = "#characters"\n',
+        encoding="utf-8")
+    cfg = load_config(path)
+    assert cfg.scripts.scheme_roots == ["Tropes", "Content"]
+    assert cfg.scripts.majchar_field == "#characters"
+    assert cfg.scripts.fandom_field == "#fandom"     # unlisted keys keep theirs

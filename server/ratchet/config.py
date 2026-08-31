@@ -132,11 +132,37 @@ class PolitenessCfg:
 
 
 @dataclass
+class ScriptsCfg:
+    """Columns the maintenance scripts in .scripts/ read and write.
+
+    The service never looks at these; they are here because the scripts load
+    the same config.toml and a second file to keep in step would be one file
+    too many. Every one is the name of a calibre custom column, and a script
+    whose column is left blank says so and does nothing rather than guessing.
+    """
+    # Multi-value text: which fandom(s) a story belongs to.
+    fandom_field: str = "#fandom"
+    # Multi-value text: the characters a story is actually about.
+    majchar_field: str = "#majchar"
+    # Boolean: whether FanFicFare can update this book.
+    downloaded_field: str = "#downloaded"
+    # Top-level tag names your own scheme owns, e.g. ["Tropes", "Content"].
+    # A tag under any other root is taken to have arrived from a source site
+    # rather than been filed deliberately, which is what stray_tags.py sorts
+    # out. Left empty that script has no way to tell the two apart, so it
+    # says so and stops instead of treating your whole vocabulary as stray.
+    scheme_roots: list[str] = field(default_factory=list)
+
+
+@dataclass
 class Config:
     service: ServiceCfg
     calibre: CalibreCfg
     fanficfare: FFFCfg
     politeness: PolitenessCfg
+    # Defaulted rather than required: nothing the service does reads it, so a
+    # Config built in code has no reason to have to supply one.
+    scripts: ScriptsCfg = field(default_factory=ScriptsCfg)
 
     @property
     def bind_host(self) -> str:
@@ -199,6 +225,7 @@ def load_config(path: str | Path) -> Config:
         calibre=_section(CalibreCfg, data, "calibre"),
         fanficfare=_section(FFFCfg, data, "fanficfare"),
         politeness=_section(PolitenessCfg, data, "politeness"),
+        scripts=_section(ScriptsCfg, data, "scripts"),
     )
     env_file = _load_env_file(Path(path).resolve().parent / ".env")
     for var, section, attr in _ENV_OVERRIDES:

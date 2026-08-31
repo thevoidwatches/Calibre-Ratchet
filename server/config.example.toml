@@ -55,3 +55,16 @@ include_images = "true"     # "true", "coveronly" or "false"; applies to epub do
 
 [politeness]
 min_seconds_between_site_requests = 5.0
+
+# Only the maintenance scripts in .scripts/ read this section; the service
+# ignores it. Each names a calibre custom column, and a script whose column
+# is blank says so and does nothing rather than guessing at another.
+[scripts]
+fandom_field = "#fandom"        # multi-value text: which fandom(s) a story is
+majchar_field = "#majchar"      # multi-value text: who it is actually about
+downloaded_field = "#downloaded"  # boolean: FanFicFare can update this book
+# Top-level tag names your own scheme owns. A tag under any other root is
+# taken to have come from a source site, which is what stray_tags.py sorts
+# out; leave it empty and that script stops rather than calling everything
+# stray. e.g. ["Tropes", "Content", "Format", "Key Events"]
+scheme_roots = []
