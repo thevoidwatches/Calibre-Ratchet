@@ -130,6 +130,23 @@ export function visibleValues(all, present, showAll, typed) {
  *  not. calibre fills the count in when a book's format is written, so an
  *  older book that has never been updated reports 0 — which means unknown
  *  here, not empty. */
+// A zero-width space: invisible, and a place the line may break.
+const SEGMENT_BREAK = "​";
+
+/** Several values as the one line a book's row shows them on, with somewhere
+ *  sensible to break.
+ *
+ *  A hierarchical value is a single unbreakable word to a browser —
+ *  "Nonfiction.Informational.Science.Physics.Astrophysics" has no space in
+ *  fifty-three characters — so a row that has to wrap one splits it wherever
+ *  the line happened to run out, mid-word. Offering a break after each dot
+ *  puts those splits between the segments instead, where the meaning already
+ *  divides. A dot that is followed by a space is left alone: the space is a
+ *  break opportunity of its own, and "Mr. Norrell" is not a hierarchy. */
+export function metaLine(values) {
+  return (values || []).join(" · ").replace(/\.(?!\s)/g, "." + SEGMENT_BREAK);
+}
+
 /** The configured column (calibre.row_field) as it appears at the right of a
  *  row's title line — which is where a book with a series shows its series,
  *  so this stands in only when there is none. Multi-valued columns read as

@@ -2,7 +2,7 @@
 "use strict";
 import { $, state, apiJson, err, clearErr, show, forgetBrowseScroll,
          FILTER_BY_EVENT, PICK_FILTER_EVENT } from "./core.js";
-import { seriesLabel, pageLabel, rowFieldLabel } from "./format.js";
+import { seriesLabel, pageLabel, rowFieldLabel, metaLine } from "./format.js";
 import { buildQuery, describeFilters, isDownloadedAtom, isPresetAtom } from "./query.js";
 import { openBook } from "./detail.js";
 import { downloadedIds } from "./catalog.js";
@@ -140,8 +140,8 @@ export async function search(more = false) {
       // the CSS collapses an empty span, so the row does not gain a gap.
       li.querySelector(".len").textContent = pageLabel(b.pages);
       const meta = li.children[2];
-      meta.querySelector(".genres").textContent = (b.genre || []).join(" · ");
-      meta.querySelector(".tags").textContent = (b.tags || []).join(" · ");
+      meta.querySelector(".genres").textContent = metaLine(b.genre);
+      meta.querySelector(".tags").textContent = metaLine(b.tags);
       li.onclick = () => openBook(b.id);
       $("results").append(li);
     }
