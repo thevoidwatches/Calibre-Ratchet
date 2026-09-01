@@ -20,7 +20,7 @@ import { $, state, apiJson, err, clearErr, show, PICK_FILTER_EVENT } from "./cor
 import { renderFilterChips, search, fullQuery } from "./browse.js";
 import { wouldCycle } from "./query.js";
 import { inShell } from "./storage.js";
-import { visibleValues } from "./format.js";
+import { visibleValues, segments } from "./format.js";
 
 // Pseudo-column in the picker listing the saved sets themselves.
 const PRESET_COL = "Saved sets";
@@ -400,7 +400,9 @@ function renderValTree() {
   const root = {};
   for (const n of items) {
     let cur = root;
-    const parts = n.split(".");
+    // Split on the dots that mean depth, not the ones inside a name — the
+    // rejoin below puts them back, so a level's key is its own full path.
+    const parts = segments(n);
     for (let i = 0; i < parts.length; i++) {
       const key = parts.slice(0, i + 1).join(".");
       cur.children = cur.children || {};

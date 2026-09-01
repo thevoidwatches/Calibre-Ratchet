@@ -1,7 +1,7 @@
 // Where a book row's genre and tag line is allowed to wrap.
 // Exercised from tests/test_meta_line.py via node.
 import "./dom_stub.mjs";
-const { metaLine } = await import("../ratchet/static/format.js");
+const { metaLine, segments } = await import("../ratchet/static/format.js");
 
 const ZWSP = "​";
 const out = {};
@@ -28,5 +28,19 @@ out.separator = show(metaLine(["A.B", "C.D"]));
 const visible = s => s.split(ZWSP).join("");
 out.reads_the_same = visible(metaLine(["Fantasy.High", "Romance"]))
   === ["Fantasy.High", "Romance"].join(" · ");
+
+// Splitting a hierarchy: the separator is a dot with the next level right
+// behind it, so a dot followed by a space belongs to the name.
+out.seg_deep = segments("Nonfiction.Informational.Science");
+out.seg_title = segments("Dr. Greta Helsing");
+out.seg_fandom = segments("Jonathan Strange and Mr. Norrell");
+out.seg_mixed = segments("A.B. C");
+out.seg_colon = segments("Cosmere.Mistborn.1: Fall of the Empire");
+out.seg_flat = segments("Romance");
+out.seg_empty = segments("");
+out.seg_missing = segments(null);
+// Every level's key is rebuilt by rejoining, so the round trip must be exact.
+out.seg_roundtrip = ["Dr. Greta Helsing", "A.B. C", "Worm.Internship.Deputy"]
+  .every(v => segments(v).join(".") === v);
 
 process.stdout.write(JSON.stringify(out));

@@ -46,7 +46,7 @@ export function suggestValues(all, current) {
 export function groupSuggestions(values) {
   const families = new Map();
   for (const v of values || []) {
-    const head = String(v).split(".")[0];
+    const head = segments(v)[0];
     if (!families.has(head)) families.set(head, []);
     families.get(head).push(v);
   }
@@ -130,6 +130,21 @@ export function visibleValues(all, present, showAll, typed) {
  *  not. calibre fills the count in when a book's format is written, so an
  *  older book that has never been updated reports 0 — which means unknown
  *  here, not empty. */
+// A dot that divides a hierarchy from a dot that is simply punctuation: the
+// separator is a dot with nothing after it but the next level, so a dot
+// followed by a space is part of the name. "Dr. Greta Helsing" is one series
+// and "Jonathan Strange and Mr. Norrell" is one fandom, though calibre's own
+// tag browser reads both as two levels and files them under "Dr" and
+// "Jonathan Strange and Mr".
+const HIERARCHY_DOT = String.raw`\.(?!\s)`;
+const HIERARCHY_SPLIT = new RegExp(HIERARCHY_DOT);
+const EVERY_HIERARCHY_DOT = new RegExp(HIERARCHY_DOT, "g");
+
+/** A hierarchical value's levels, outermost first. */
+export function segments(value) {
+  return String(value == null ? "" : value).split(HIERARCHY_SPLIT);
+}
+
 // A zero-width space: invisible, and a place the line may break.
 const SEGMENT_BREAK = "​";
 
@@ -144,7 +159,8 @@ const SEGMENT_BREAK = "​";
  *  divides. A dot that is followed by a space is left alone: the space is a
  *  break opportunity of its own, and "Mr. Norrell" is not a hierarchy. */
 export function metaLine(values) {
-  return (values || []).join(" · ").replace(/\.(?!\s)/g, "." + SEGMENT_BREAK);
+  return (values || []).join(" · ")
+    .replace(EVERY_HIERARCHY_DOT, "." + SEGMENT_BREAK);
 }
 
 /** The configured column (calibre.row_field) as it appears at the right of a

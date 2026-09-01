@@ -71,3 +71,35 @@ def test_the_book_list_uses_it_for_both_sides_of_the_row():
     browse = client.get("/ui/browse.js").text
     assert 'querySelector(".genres").textContent = metaLine(b.genre)' in browse
     assert 'querySelector(".tags").textContent = metaLine(b.tags)' in browse
+
+
+def test_a_dot_inside_a_name_is_not_a_level(m):
+    """The reported case: "Dr. Greta Helsing" is one series, and was being
+    shown as a "Dr" family with "Greta Helsing" beneath it."""
+    assert m["seg_title"] == ["Dr. Greta Helsing"]
+    assert m["seg_fandom"] == ["Jonathan Strange and Mr. Norrell"]
+
+
+def test_a_real_hierarchy_still_splits(m):
+    assert m["seg_deep"] == ["Nonfiction", "Informational", "Science"]
+    assert m["seg_colon"] == ["Cosmere", "Mistborn", "1: Fall of the Empire"]
+    assert m["seg_mixed"] == ["A", "B. C"]      # one of each in the same value
+    assert m["seg_flat"] == ["Romance"]
+    assert m["seg_empty"] == [""] and m["seg_missing"] == [""]
+
+
+def test_the_levels_rejoin_to_what_they_came_from(m):
+    """The value picker names each level by rejoining the ones above it, so a
+    split that did not round-trip would filter on a path no book has."""
+    assert m["seg_roundtrip"] is True
+
+
+def test_the_value_picker_and_the_suggestions_split_the_same_way():
+    """One rule, in one place: a tree that disagreed with the suggestion
+    groups would file the same value under two different families."""
+    fmt = client.get("/ui/format.js").text
+    assert "export function segments(" in fmt
+    assert "const head = segments(v)[0];" in fmt          # suggestion families
+    picker = client.get("/ui/picker.js").text
+    assert "const parts = segments(n);" in picker          # the value tree
+    assert 'split(".")' not in picker
