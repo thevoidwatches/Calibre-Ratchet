@@ -78,3 +78,68 @@ def test_the_page_is_not_simply_told_to_hide_the_overflow():
     and would hide the next one too."""
     for selector in ("body", "html", "main"):
         assert "overflow-x" not in rule_for(selector), selector
+
+
+def test_the_expander_in_the_value_tree_is_a_real_touch_target():
+    """It was sized to the arrowhead — a few millimetres of glyph — which is
+    below what a finger can reliably hit."""
+    twist = rule_for(".tree .twist")
+    assert "min-width: 44px" in twist and "min-height: 44px" in twist
+    # Centred, since the glyph no longer fills the box it is hit in.
+    assert "justify-content: center" in twist and "align-items: center" in twist
+
+
+def test_choosing_the_placeholder_clears_the_filters():
+    """The top entry of the saved-set dropdown is the way back out of a set;
+    leaving its chips in place would show filters the dropdown disclaims."""
+    js = client.get("/ui/filters.js").text
+    assert "function clearFilters()" in js
+    assert "if (!name) { clearFilters(); return; }" in js
+    body = js.split("function clearFilters()")[1].split("}")[0]
+    assert "state.filterGroups = []" in body
+    assert "search()" in body      # and the list reflects it at once
+
+
+SMALL_TRIANGLES = "▸▾◂▴"      # U+25B8 etc: "small" by design
+
+
+def test_every_collapse_arrow_is_a_full_size_triangle():
+    """The small triangles are half the ink of the full ones, so a larger box
+    around one is still a tiny arrowhead to look at."""
+    for path in ("/ui/picker.js", "/ui/browse.js", "/ui/ui.css", "/ui/"):
+        text = client.get(path).text
+        assert not [c for c in text if c in SMALL_TRIANGLES], path
+
+
+def test_they_are_all_sized_from_one_place():
+    """The value tree, the filter bar and the book page's field sections are
+    the same control in three costumes; one token keeps them recognisable as
+    such and tunable together."""
+    assert "--twist-size:" in rule_for(":root")
+    for selector in (".tree .twist", ".twisty",
+                     "details.fieldset > summary::before"):
+        assert "font-size: var(--twist-size)" in rule_for(selector), selector
+
+
+def test_the_filter_bar_arrow_is_its_own_element():
+    """Sized inside a button whose label stays its own size, which needs the
+    arrow to be an element rather than part of the text."""
+    browse = client.get("/ui/browse.js").text
+    assert 'twist.className = "twisty"' in browse
+    assert "btn.replaceChildren(twist," in browse
+    assert 'class="twisty"' in client.get("/ui/").text   # and before JS runs
+
+
+def test_the_picker_says_where_each_way_out_goes():
+    """Leaving the column list abandons the filter and lands on the book
+    list; leaving the value list only steps back to the column list."""
+    html = client.get("/ui/").text
+
+    def way_out(section: str) -> str:
+        body = html.split(f'id="{section}"')[1].split("</section>")[0]
+        return re.search(r"<button[^>]*data-nav[^>]*>(.*?)</button>", body).group(1)
+
+    assert "cancel" in way_out("vPickCol")
+    assert "back" in way_out("vPickVal")
+    # The book page is a step off the list, so leaving it is a step back too.
+    assert "back" in way_out("vDetail")

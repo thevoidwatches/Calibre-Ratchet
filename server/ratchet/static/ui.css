@@ -9,6 +9,11 @@
   --shade-1: #ddd;   /* error box */
   --shade-2: #eee;   /* warning box */
   --stripe: rgb(200, 200, 200);   /* alternating book rows */
+  /* Every arrowhead that opens or closes something, sized in one place so
+     they stay recognisable as the same control. Larger than the text beside
+     them on purpose: at body size an arrowhead is a few millimetres of ink
+     and reads as punctuation rather than as something to press. */
+  --twist-size: 1.2rem;
   color-scheme: light;
 }
 
@@ -117,8 +122,9 @@ details.fieldset > summary { cursor: pointer; list-style: none; display: flex;
                              align-items: baseline; gap: 8px; min-height: 32px;
                              padding: 2px 0; }
 details.fieldset > summary::-webkit-details-marker { display: none; }
-details.fieldset > summary::before { content: "▸"; flex: 0 0 auto; }
-details.fieldset[open] > summary::before { content: "▾"; }
+details.fieldset > summary::before { content: "▶"; flex: 0 0 auto;
+                                    font-size: var(--twist-size); line-height: 1; }
+details.fieldset[open] > summary::before { content: "▼"; }
 details.fieldset > summary .flabel { font-weight: bold; flex: 0 0 auto; }
 /* The value is the part that gives way when the row runs out of room. */
 details.fieldset > summary .fvalue { flex: 1 1 auto; min-width: 0;
@@ -152,8 +158,16 @@ details.fieldset[open] > summary .fvalue { display: none; }
 
 /* Expander beside a family in the value picker. Literal glyphs rather than
    CSS escapes — an escaped one once ended up as a control byte here. */
+/* Sized to the platform's smallest comfortable touch target rather than to
+   the arrowhead, which is a few millimetres of glyph and was being missed. */
 .tree .twist { background: none; border: none; color: inherit; font: inherit;
-               padding: 0 6px; min-height: 34px; cursor: pointer; }
+               min-width: 44px; min-height: 44px; padding: 0;
+               display: inline-flex; align-items: center; justify-content: center;
+               font-size: var(--twist-size); line-height: 1; cursor: pointer; }
+
+/* The same arrowhead inline in a button's label, where the label around it
+   stays its own size. */
+.twisty { font-size: var(--twist-size); line-height: 1; }
 .tree li { display: flex; flex-wrap: wrap; align-items: center; }
 .tree li > ul { flex: 1 0 100%; }
 .tree li > ul[hidden] { display: none; }

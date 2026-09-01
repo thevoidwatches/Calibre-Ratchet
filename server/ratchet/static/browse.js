@@ -22,7 +22,12 @@ export function renderFilterBar() {
   const n = termCount();
   const collapsed = localStorage.getItem(COLLAPSE_KEY) === "1";
   const btn = $("btnToggleFilters");
-  btn.textContent = (collapsed ? "▸" : "▾") + " Filters" + (n ? " (" + n + ")" : "");
+  // The arrowhead is its own element so it can be sized without dragging the
+  // label up with it.
+  const twist = document.createElement("span");
+  twist.className = "twisty";
+  twist.textContent = collapsed ? "▶" : "▼";
+  btn.replaceChildren(twist, " Filters" + (n ? " (" + n + ")" : ""));
   btn.setAttribute("aria-expanded", String(!collapsed));
   // With no filters there is nothing to collapse; hiding the empty box keeps
   // the row from taking up space.

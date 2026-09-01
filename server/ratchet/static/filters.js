@@ -30,6 +30,14 @@ export async function loadSavedFilters() {
   $("btnDeleteFilters").hidden = !sel.value;
 }
 
+/** Drop every filter and show the whole library again. */
+function clearFilters() {
+  state.filterGroups = [];
+  renderFilterChips();
+  renderFilterBar();
+  search();
+}
+
 function applySaved(name) {
   const found = (state.savedFilters || []).find(f => f.name === name);
   if (!found) return;
@@ -44,8 +52,11 @@ export function initFilters() {
   $("savedFilters").onchange = () => {
     const name = $("savedFilters").value;
     $("btnDeleteFilters").hidden = !name;
-    if (!name) return;
     play("select");       // the choice is the move; opening the list tapped
+    // Picking the placeholder at the top of the list is the way back out of a
+    // saved set: it clears what that set put in the filter bar, rather than
+    // leaving the chips of a set the dropdown no longer claims to be showing.
+    if (!name) { clearFilters(); return; }
     applySaved(name);
   };
 

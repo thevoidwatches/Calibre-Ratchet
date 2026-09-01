@@ -433,7 +433,7 @@ function renderValTree() {
         twist = document.createElement("button");
         twist.type = "button";
         twist.className = "twist";
-        twist.textContent = "▸";
+        twist.textContent = "▶";
         twist.setAttribute("aria-expanded", "false");
         twist.setAttribute("aria-label", "show values under " + child.label);
         li.append(twist);
@@ -444,7 +444,7 @@ function renderValTree() {
         kids.hidden = true;
         twist.onclick = () => {
           kids.hidden = !kids.hidden;
-          twist.textContent = kids.hidden ? "▸" : "▾";
+          twist.textContent = kids.hidden ? "▶" : "▼";
           twist.setAttribute("aria-expanded", String(!kids.hidden));
         };
         li.append(kids);

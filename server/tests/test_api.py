@@ -353,11 +353,14 @@ def test_collapse_markers_are_real_arrows_and_match_the_filter_bar():
     """These have been mangled twice by escaping layers: once into an octal
     escape (a 0x15 control byte), once into a literal backslash sequence."""
     css = client.get("/ui/ui.css").text
-    assert "\u25b8" in css and "\u25be" in css        # closed / open markers
+    assert "\u25b6" in css and "\u25bc" in css        # closed / open markers
     assert not [c for c in css if ord(c) < 32 and c not in "\r\n\t"]
-    # The same glyphs the filter bar draws, so the two read alike.
-    assert "\u25b8" in client.get("/ui/browse.js").text
-    assert "\u25be" in client.get("/ui/browse.js").text
+    # The same glyphs the filter bar and the value tree draw, so every place
+    # that opens something reads alike.
+    for path in ("/ui/browse.js", "/ui/picker.js"):
+        text = client.get(path).text
+        assert "\u25b6" in text and "\u25bc" in text, path
+        assert not [c for c in text if ord(c) < 32 and c not in "\r\n\t"], path
 
 
 def test_icon_set_is_served_and_declared():
