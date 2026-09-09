@@ -8,7 +8,11 @@
 // behind the `document` guard at the bottom.
 "use strict";
 
-export const SERVER = "http://YOUR-MACHINE.tailXXXXXX.ts.net:8484";
+// Replaced by build-error-page.mjs with the origin of server.url from
+// capacitor.config.json, so the offline page and the app cannot disagree
+// about where the server is. The value below is only what the node tests
+// see — the address itself belongs to one machine, not to the project.
+export const SERVER = "http://localhost:8484";
 
 // ---------------- pure helpers (node-tested) ----------------
 

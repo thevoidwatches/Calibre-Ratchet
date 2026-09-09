@@ -14,6 +14,16 @@ __pycache__/
 *.pyc
 *.sqlite3
 
+# where your own server lives — the shell is built against one machine's
+# tailnet address, which is yours rather than the project's. Copy the
+# .example and put your address in it; build-error-page.mjs reads it from
+# here so the offline page cannot disagree with the app about the address.
+shell/capacitor.config.json
+# generated from error.template.html + offline.js + offline.css, with that
+# address baked in — a build artifact, and one machine's at that. Run
+# `node build-error-page.mjs` before `npx cap copy android`.
+shell/www/error.html
+
 # native shell build artifacts (the android/ project itself is tracked)
 shell/node_modules/
 shell/android/.gradle/

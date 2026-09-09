@@ -171,10 +171,27 @@ calibre itself in `shell:startup` — or run `calibre-server` as its own task).
 ## The Android shell
 
 `shell/` wraps the served UI in a native Android app (Capacitor). The WebView
-loads `http://YOUR-MACHINE.tailXXXXXX.ts.net:8484/ui/` — the same files the
-browser gets — so UI changes ship by editing the server, never by rebuilding
-the APK. The shell exists to hold native permissions (filesystem, opening
-files in other apps); it rebuilds only when the native plugin list changes.
+loads `<your tailnet address>:8484/ui/` — the same files the browser gets —
+so UI changes ship by editing the server, never by rebuilding the APK. The
+shell exists to hold native permissions (filesystem, opening files in other
+apps); it rebuilds only when the native plugin list changes.
+
+That address is yours rather than the project's, so it is not committed:
+
+```powershell
+cd shell
+Copy-Item capacitor.config.example.json capacitor.config.json
+# Edit server.url to your own machine's MagicDNS name (`tailscale status`),
+# which is steadier than the tailnet IP. Keep the /ui/ on the end.
+```
+
+`www/error.html` — the offline page — is generated from that same file, so
+the app and its fallback can never disagree about where the server is.
+Regenerate it after editing either the config or the offline page's sources:
+
+```powershell
+node build-error-page.mjs      # before every `npx cap copy android`
+```
 
 Build (JDK 21 and the Android SDK live under `C:\Users\Cassandra\android-dev`,
 installed without Android Studio):

@@ -339,7 +339,7 @@ What the tests can't cover from here: anything that needs *your* live calibre,
    and just wait until a real interlude-insertion happens), run `/update`,
    confirm the post-verify passes and the chapter text is intact.
 7. **S7 — the UI, live.** Service now binds `host = "tailscale"` (resolved at
-   startup; currently 100.64.0.1) and needs the one-time inbound firewall
+   startup, so it follows the machine) and needs the one-time inbound firewall
    rule in `server/README.md` before a phone or ereader can connect.
    ~~**S7 — the UI, live.**~~ Open `http://<host>:8484/ui` on the ereader and
    the phone, paste the token once, add to home screen. Verify against the
