@@ -24,6 +24,10 @@ something nobody has ruled on — it shows up in the next review instead.
 Moves are additive: the value is added to the column, never replacing what is
 already there, and a book that already records it simply loses the tag.
 
+What a deeper value already implies is then dropped: a site that tags a story
+"Fantasy" and "High Fantasy" at once would otherwise file it under both
+"Fantasy" and "Fantasy.High", where the second already says the first.
+
 Both the service (when a book is added) and .scripts/stray_tags.py (sweeping
 the library afterwards) read the same file through this module, so a decision
 means the same thing whichever applied it.
@@ -32,6 +36,7 @@ means the same thing whichever applied it.
 from __future__ import annotations
 
 import fnmatch
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -39,6 +44,12 @@ from . import configfiles
 from .calibre import field_values
 
 DELETE = "-"
+
+# A dot that divides a hierarchy from a dot that is simply punctuation, the
+# same rule the UI splits on: the separator is a dot with nothing after it but
+# the next level, so a dot followed by a space is part of the name. "Dr. Greta
+# Helsing" is one value, not "Greta Helsing" beneath "Dr".
+HIERARCHY_DOT = re.compile(r"\.(?!\s)")
 
 
 @dataclass
@@ -188,15 +199,40 @@ def apply(meta: dict, rules: Rules, columns: dict[str, str]) -> dict[str, list[s
         # Changed if anything left the tags, or what stayed is not the tag itself.
         touched = touched or stays != [tag] or len(stays) != len(parsed)
 
+    # Collapsing happens only on a book some rule fired on, so a book nobody
+    # has ruled on is still left exactly as it is — including a redundant
+    # parent it was filed with by hand.
     if not touched:
         return {}
     out: dict[str, list[str]] = {}
-    if keep != tags:
-        out["tags"] = _dedupe(keep)
+    new_tags = drop_implied(_dedupe(keep))
+    if new_tags != tags:
+        out["tags"] = new_tags
     for column, values in additions.items():
-        if values != field_values(meta, column):
-            out[column] = _dedupe(values)
+        new_values = drop_implied(_dedupe(values))
+        if new_values != field_values(meta, column):
+            out[column] = new_values
     return out
+
+
+def implies(parent: str, child: str) -> bool:
+    """Whether `child` sits under `parent` in a hierarchical column."""
+    return (child.startswith(parent)
+            and HIERARCHY_DOT.match(child, len(parent)) is not None)
+
+
+def drop_implied(values: list[str]) -> list[str]:
+    """The values left once each one a deeper value already covers is removed.
+
+    A hierarchical column reads "Fantasy.High" as high fantasy *within*
+    fantasy, so "Fantasy" beside it adds nothing and costs a line on a
+    phone-sized row. Sites tag broadly and narrowly at once — RoyalRoad puts
+    "Fantasy", "High Fantasy" and "Portal Fantasy / Isekai" on one story — so
+    rules that map each tag faithfully would otherwise fill a column with its
+    own parents.
+    """
+    return [v for v in values
+            if not any(other != v and implies(v, other) for other in values)]
 
 
 def _dedupe(values: list[str]) -> list[str]:

@@ -194,6 +194,65 @@ def test_a_mistyped_column_leaves_the_whole_rule_alone(tmp_path):
     assert tagmap.apply(book(["The Watch"]), r, COLUMNS) == {}
 
 
+def test_a_deeper_value_replaces_the_one_it_already_implies(tmp_path):
+    """RoyalRoad tags a story "Fantasy" and "High Fantasy" at once, and
+    "Fantasy.High" already says it is fantasy."""
+    r = rules(tmp_path, "Fantasy = genre: Fantasy\n"
+                        "High Fantasy = genre: Fantasy.High\n")
+    got = tagmap.apply(book(["Fantasy", "High Fantasy"], **{"#genre": []}),
+                       r, COLUMNS)
+    assert got["#genre"] == ["Fantasy.High"]
+
+
+def test_a_parent_with_no_child_present_stays(tmp_path):
+    r = rules(tmp_path, "Fantasy = genre: Fantasy\nAngst = genre: Angst\n")
+    got = tagmap.apply(book(["Fantasy", "Angst"], **{"#genre": []}), r, COLUMNS)
+    assert got["#genre"] == ["Fantasy", "Angst"]
+
+
+def test_only_the_deepest_of_a_chain_survives(tmp_path):
+    r = rules(tmp_path, "X = genre: Fiction, Fiction.Time Travel, "
+                        "Fiction.Time Travel.Loop\n")
+    got = tagmap.apply(book(["X"], **{"#genre": []}), r, COLUMNS)
+    assert got["#genre"] == ["Fiction.Time Travel.Loop"]
+
+
+def test_a_dot_inside_a_name_does_not_make_one_value_imply_another(tmp_path):
+    """"Dr. Greta Helsing" is one series, not "Greta Helsing" under "Dr" —
+    the same rule the UI splits hierarchies on."""
+    r = rules(tmp_path, "A = genre: Dr, Dr. Greta Helsing\n")
+    got = tagmap.apply(book(["A"], **{"#genre": []}), r, COLUMNS)
+    assert got["#genre"] == ["Dr", "Dr. Greta Helsing"]
+
+
+def test_a_parent_the_book_already_had_gives_way_to_the_new_child(tmp_path):
+    r = rules(tmp_path, "High Fantasy = genre: Fantasy.High\n")
+    got = tagmap.apply(book(["High Fantasy"], **{"#genre": ["Fantasy"]}),
+                       r, COLUMNS)
+    assert got["#genre"] == ["Fantasy.High"]
+
+
+def test_the_tags_collapse_the_same_way(tmp_path):
+    r = rules(tmp_path, "LitRPG = Format.LitRPG\n")
+    got = tagmap.apply(book(["LitRPG", "Format"]), r, COLUMNS)
+    assert got["tags"] == ["Format.LitRPG"]
+
+
+def test_a_book_no_rule_fires_on_keeps_even_a_redundant_parent(tmp_path):
+    """Collapsing is a consequence of applying a rule, not a licence to tidy
+    a book nobody has ruled on."""
+    r = rules(tmp_path, "Something Else = -\n")
+    assert tagmap.apply(book(["Fantasy", "Fantasy.High"]), r, COLUMNS) == {}
+
+
+def test_implies_reads_depth_not_a_shared_prefix():
+    assert tagmap.implies("Fantasy", "Fantasy.High")
+    assert not tagmap.implies("Fantasy", "Fantasy High")
+    assert not tagmap.implies("Fan", "Fantasy.High")
+    assert not tagmap.implies("Dr", "Dr. Greta Helsing")
+    assert not tagmap.implies("Fantasy.High", "Fantasy")
+
+
 def test_the_rules_file_lives_in_the_config_folder():
     from ratchet import configfiles
     assert configfiles.CONFIG_DIR.name == "config"
