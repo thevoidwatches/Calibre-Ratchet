@@ -28,6 +28,21 @@ fandom_field = "#fandom"   # the other two columns this library files under.
 majchar_field = "#majchar" # A tag rule can move a tag into any of the three,
                            # and the maintenance scripts read and write them.
 row_field = ""             # custom column shown at the right of the title line
+
+# Where "this book's content last arrived" is recorded, which the Last Updated
+# sort reads. calibre's Date is when a book was ADDED and nothing moves it
+# afterwards — not a metadata edit, not replacing the epub with new chapters —
+# so on its own it cannot say what got new chapters recently.
+#   ""             record nothing; the sort falls back to Date. No book is
+#                  written to, and no column is needed.
+#   "#lastupdate"  a datetime column you add yourself (calibre: Preferences →
+#                  Add your own columns, type Date). Keeps Date meaning
+#                  date-added. Books with no value yet sort as one block,
+#                  because calibre sorts server-side and cannot fall back per
+#                  book — so seed it from Date if you want an exact order.
+#   "timestamp"    overwrite calibre's own Date. No column needed and exact at
+#                  once, but date-added is then gone for good.
+lastupdate_field = ""
                            # in the book list, for books with no series — which
                            # is what otherwise sits there. A library without the
                            # column just shows nothing. e.g. "#fandom"

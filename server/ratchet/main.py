@@ -16,6 +16,7 @@ import tempfile
 import threading
 import time
 from collections import defaultdict
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import Body, Depends, FastAPI, Header, HTTPException, Query
@@ -92,14 +93,85 @@ SORT_OPTIONS = [
     {"key": "title",    "label": "Title",         "calibre": "title"},
     {"key": "series",   "label": "Series",        "calibre": "series"},
     {"key": "author",   "label": "Author",        "calibre": "authors,series"},
-    {"key": "modified", "label": "Last modified", "calibre": "last_modified"},
+    # Resolved per library rather than fixed: see _sort_field.
+    {"key": "updated",  "label": "Last Updated",  "calibre": ""},
     # calibre works this out itself when a book's format is written, so it is
     # only filled in for books added or updated since that feature arrived —
     # the rest sort as zero rather than as unknown.
     {"key": "pages",    "label": "Pages",         "calibre": "pages"},
 ]
 _SORT_BY_KEY = {o["key"]: o["calibre"] for o in SORT_OPTIONS}
-DEFAULT_SORT = "modified"
+DEFAULT_SORT = "updated"
+
+# What "modified" used to mean. Devices remember the sort they were last set
+# to, so a phone that has not been reloaded still asks for it; answering 400
+# would leave that device unable to list anything until someone cleared its
+# storage.
+_SORT_ALIASES = {"modified": "updated"}
+
+
+def _sort_field(key: str, library: str) -> str:
+    """The calibre sort for a UI sort key, in this library.
+
+    Only "updated" varies. calibre answers 404 for a sort field the library
+    has not got, so a library without the configured column has to be sorted
+    by Date instead — which is what a library that records nothing gets too.
+    """
+    if key != "updated":
+        return _SORT_BY_KEY[key]
+    field = (cfg.calibre.lastupdate_field or "").strip()
+    if not field or field == "timestamp":
+        return "timestamp"
+    # Date as the tie-break, so books sharing a value (or lacking one) still
+    # come out in a sensible order rather than an arbitrary one.
+    wanted = f"{field},timestamp"
+    return wanted if _sortable(library, wanted) else "timestamp"
+
+
+# Whether calibre will accept a sort, asked once per library and remembered:
+# a column is not added or dropped while the service runs, and this would
+# otherwise cost an extra round trip on every listing.
+_sortable_cache: dict[tuple[str, str], bool] = {}
+_sortable_lock = threading.Lock()
+
+
+def _sortable(library: str, sort: str) -> bool:
+    with _sortable_lock:
+        known = _sortable_cache.get((library, sort))
+    if known is not None:
+        return known
+    try:
+        calibre.search(query="", num=1, library_id=library, sort=sort)
+        ok = True
+    except CalibreError:
+        ok = False
+        log.info("sort: %s has no %r — Last Updated will use Date there",
+                 library or "(default library)", sort.split(",")[0])
+    with _sortable_lock:
+        _sortable_cache[(library, sort)] = ok
+    return ok
+
+
+def _record_last_update(lib: str, book_id: int, new_book: bool = False) -> None:
+    """Note that this book's content has just arrived.
+
+    Also on a new book, so that a library recording this into a column of its
+    own has a value for everything Ratchet added rather than only for what it
+    has since updated — a book with no value sorts as a block, not in place.
+
+    Never fatal: the epub is already in calibre by the time this runs, so a
+    failure here is a wrong sort order, not a lost update.
+    """
+    field = (cfg.calibre.lastupdate_field or "").strip()
+    if not field:
+        return
+    if new_book and field == "timestamp":
+        return          # calibre set Date itself, a moment ago
+    when = datetime.now(timezone.utc).isoformat()
+    try:
+        calibre.set_fields(book_id, {field: when}, lib)
+    except CalibreError as e:
+        log.warning("book %s: could not record %s: %s", book_id, field, e)
 
 
 def require_token(authorization: str = Header(default=""),
@@ -308,6 +380,7 @@ def list_books(q: str = Query(default=""), num: int = 50, offset: int = 0,
                sort: str = DEFAULT_SORT, sort_order: str = "desc",
                library: str | None = LIB_Q) -> dict:
     lib = _lib(library)
+    sort = _SORT_ALIASES.get(sort, sort)
     # Rejected rather than silently corrected: calibre answers 200 for a sort
     # field it does not recognise, so a typo would quietly return an order
     # nobody asked for.
@@ -317,7 +390,7 @@ def list_books(q: str = Query(default=""), num: int = 50, offset: int = 0,
     if sort_order not in ("asc", "desc"):
         raise HTTPException(400, "sort_order must be 'asc' or 'desc'")
     res = calibre.search(query=q, num=num, offset=offset, library_id=lib,
-                         sort=_SORT_BY_KEY[sort], sort_order=sort_order)
+                         sort=_sort_field(sort, lib), sort_order=sort_order)
     ids = res.get("book_ids", [])
     metas = calibre.books(ids, library_id=lib) if ids else {}
     books = []
@@ -431,6 +504,7 @@ def add_book(url: str = Body(embed=True), library: str | None = LIB_Q) -> dict:
             log.warning("add: cover for book %s could not be set — %s", book_id, e)
 
     tags_changed = _apply_tag_rules(lib, book_id)
+    _record_last_update(lib, book_id, new_book=True)
 
     sidecar.save_snapshot(lib, book_id, norm, site_of(norm),
                           [c.as_dict() for c in post], baseline="exact")
@@ -730,6 +804,7 @@ def update(book_id: int, dry_run: bool = False,
                 raise HTTPException(502, f"updated epub verified but pushing to "
                                          f"calibre failed. Backup: {backup_path}. {e}")
 
+            _record_last_update(lib, book_id)
             sidecar.save_snapshot(lib, book_id, url, site_of(url),
                                   [c.as_dict() for c in post], baseline="exact")
             payload.update({

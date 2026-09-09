@@ -175,11 +175,67 @@ def test_login_success_sound_is_only_for_a_deliberate_sign_in():
     assert "if (announce) play(\"success\")" in app
 
 
-def test_sort_options_are_published_and_default_to_last_modified():
+def test_sort_options_are_published_and_default_to_last_updated():
     body = client.get("/ui-config", headers=TOK).json()
     keys = [o["key"] for o in body["sort_options"]]
-    assert keys == ["title", "series", "author", "modified", "pages"]
-    assert body["default_sort"] == "modified"
+    assert keys == ["title", "series", "author", "updated", "pages"]
+    assert body["default_sort"] == "updated"
+
+
+def test_the_sort_a_device_already_remembers_still_works():
+    """A phone stores the sort it was last set to. "modified" was that sort
+    for a long time, and answering 400 would leave such a device unable to
+    list anything until someone cleared its storage."""
+    r = client.get("/books", params={"sort": "modified"}, headers=TOK)
+    assert r.status_code == 502          # reached calibre, i.e. was accepted
+
+
+def test_nothing_is_written_when_no_field_records_it(monkeypatch):
+    """A user who has made no column must not have books written to."""
+    from ratchet import main
+    monkeypatch.setattr(main.cfg.calibre, "lastupdate_field", "")
+    monkeypatch.setattr(main.calibre, "set_fields",
+                        lambda *a, **k: pytest.fail("wrote to calibre"))
+    main._record_last_update("Serials", 7)
+    main._record_last_update("Serials", 7, new_book=True)
+
+
+def test_an_update_records_when_the_content_arrived(monkeypatch):
+    from ratchet import main
+    written = {}
+    monkeypatch.setattr(main.cfg.calibre, "lastupdate_field", "#lastupdate")
+    monkeypatch.setattr(main.calibre, "set_fields",
+                        lambda bid, changes, lib: written.update(
+                            {"book": bid, "lib": lib, **changes}))
+    main._record_last_update("Serials", 7)
+    assert written["book"] == 7 and written["lib"] == "Serials"
+    # An ISO instant, so calibre stores it as the datetime it is.
+    from datetime import datetime
+    assert datetime.fromisoformat(written["#lastupdate"]).tzinfo is not None
+
+
+def test_adding_a_book_does_not_rewrite_the_date_calibre_just_set(monkeypatch):
+    """With "timestamp" configured, calibre stamped Date moments earlier;
+    writing it again would only move it by the length of the add."""
+    from ratchet import main
+    monkeypatch.setattr(main.cfg.calibre, "lastupdate_field", "timestamp")
+    monkeypatch.setattr(main.calibre, "set_fields",
+                        lambda *a, **k: pytest.fail("rewrote Date on add"))
+    main._record_last_update("Serials", 7, new_book=True)
+
+
+def test_a_failure_to_record_does_not_fail_the_update(monkeypatch):
+    """The epub is already in calibre by then — a bad sort order is not worth
+    reporting the update as failed."""
+    from ratchet import main
+    from ratchet.calibre import CalibreError
+
+    def boom(*a, **k):
+        raise CalibreError("no such column")
+
+    monkeypatch.setattr(main.cfg.calibre, "lastupdate_field", "#lastupdate")
+    monkeypatch.setattr(main.calibre, "set_fields", boom)
+    main._record_last_update("Serials", 7)      # must not raise
 
 
 def test_unknown_sort_is_rejected_not_silently_ignored():
@@ -192,9 +248,62 @@ def test_unknown_sort_is_rejected_not_silently_ignored():
 
 
 def test_known_sorts_reach_calibre():
-    for key in ["title", "series", "author", "modified"]:
+    for key in ["title", "series", "author", "updated"]:
         r = client.get("/books", params={"sort": key, "sort_order": "asc"}, headers=TOK)
         assert r.status_code == 502, key   # calibre unreachable, but sort accepted
+
+
+def test_last_updated_reads_date_when_nothing_records_it():
+    """The default: no column to make, no book written to, and a sort that
+    still means something."""
+    from ratchet import main
+    assert main.cfg.calibre.lastupdate_field == ""
+    assert main._sort_field("updated", "Whatever") == "timestamp"
+
+
+def test_last_updated_reads_the_configured_column(monkeypatch):
+    from ratchet import main
+    monkeypatch.setattr(main.cfg.calibre, "lastupdate_field", "#lastupdate")
+    monkeypatch.setattr(main, "_sortable", lambda lib, sort: True)
+    # Date as the tie-break, so books sharing a value still have an order.
+    assert main._sort_field("updated", "Serials") == "#lastupdate,timestamp"
+
+
+def test_a_library_without_the_column_falls_back_to_date(monkeypatch):
+    """calibre answers 404 for a sort field a library has not got, so a
+    library that never had the column has to be sorted by Date instead."""
+    from ratchet import main
+    monkeypatch.setattr(main.cfg.calibre, "lastupdate_field", "#lastupdate")
+    monkeypatch.setattr(main, "_sortable", lambda lib, sort: False)
+    assert main._sort_field("updated", "Books") == "timestamp"
+
+
+def test_overwriting_date_needs_no_column_and_no_tie_break(monkeypatch):
+    from ratchet import main
+    monkeypatch.setattr(main.cfg.calibre, "lastupdate_field", "timestamp")
+    assert main._sort_field("updated", "Serials") == "timestamp"
+
+
+def test_whether_a_library_can_sort_by_something_is_asked_once(monkeypatch):
+    """Once per library: a column is not added or dropped while the service
+    runs, and asking again would cost a round trip on every listing."""
+    from ratchet import main
+    from ratchet.calibre import CalibreError
+    calls = []
+
+    def search(**kw):
+        calls.append(kw["library_id"])
+        if kw["library_id"] == "Books":
+            raise CalibreError("not a valid sort field")
+        return {"book_ids": []}
+
+    monkeypatch.setattr(main.calibre, "search", search)
+    main._sortable_cache.clear()
+    for _ in range(3):
+        assert main._sortable("Serials", "#lastupdate,timestamp") is True
+        assert main._sortable("Books", "#lastupdate,timestamp") is False
+    assert calls == ["Serials", "Books"]
+    main._sortable_cache.clear()
 
 
 def test_book_rows_are_striped_by_rendered_position():

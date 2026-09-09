@@ -98,6 +98,25 @@ class CalibreCfg:
     # books with no series — which is what otherwise occupies that space. A
     # library without the column simply shows nothing there. Blank for none.
     row_field: str = ""
+    # Where "this book's content last arrived" is recorded, which is what the
+    # Last Updated sort reads. calibre's own Date is when the book was ADDED
+    # and nothing moves it afterwards — not a metadata edit, not replacing the
+    # epub with new chapters — so on its own it cannot answer "what got new
+    # chapters recently".
+    #
+    #   ""             record nothing. The sort falls back to Date, which in a
+    #                  library Ratchet fills is still roughly right, and no
+    #                  book is written to. The default, because the other two
+    #                  need either a column or a sacrifice.
+    #   "#lastupdate"  a datetime column you added yourself. Keeps Date
+    #                  meaning date-added. Sorts exactly, once every book has
+    #                  a value — until then the empty ones sort as one block,
+    #                  since calibre sorts server-side and cannot fall back
+    #                  per book.
+    #   "timestamp"    overwrite calibre's own Date. Needs no column and is
+    #                  exact immediately, at the price of date-added, which is
+    #                  then gone for good.
+    lastupdate_field: str = ""
     # fnmatch patterns for fields writable via POST /books/{id}/fields. This
     # is the permission boundary: the endpoint refuses anything not matching.
     writable_fields: list[str] = field(default_factory=lambda: ["title", "tags", "rating", "#*"])
