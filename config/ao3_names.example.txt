@@ -1,0 +1,72 @@
+# AO3 character tags -> the names this library uses.
+#
+# Copy to ao3_names.txt, or just run
+#     cd server && python ../.scripts/ao3_characters.py --review
+# which writes the real thing: every character tag found in your epubs,
+# sorted into the sections below and pre-filled with its best guess.
+#
+# Every line is pre-filled with what the import would do. Change the
+# right-hand side to correct it, put a single '-' to drop the tag, or
+# blank it to leave the tag out for now. The fandom normally comes
+# from the book, so write the character's name on its own.
+#
+# A tag naming a group stands for several people. List them, separated
+# by commas, rather than losing them all to a '-':
+#
+#     Dupain-Cheng Family = Marinette Dupain-Cheng, Tom Dupain
+#
+# Books filed under two fandoms are the exception: nothing says which
+# of them a character belongs to. Names the library already places
+# unambiguously are handled for you; for the rest, name the fandom
+# after an @:
+#
+#     Krosp                          = Krosp @ Girl Genius
+#
+# The heading above each block is the fandom the names under it will
+# be filed under -- not the fandom of the books they came from. An @
+# label is taken as final, whatever the book says.
+#
+# Rerunning --review keeps every line already here and only appends
+# tags it has not seen, so nothing decided is ever overwritten.
+#
+# Accents, romanisation, name order and AO3's "(Fandom)" suffixes are
+# all handled mechanically. What is left for you is the two things
+# that need a person: hero names, and tags giving only a first name.
+
+# ==== matched a name already in the library (3) =================
+#   check for a wrong person; otherwise nothing to do
+Izuku Midoriya                                      = Izuku Midoriya
+Bakugou Katsuki                                     = Katsuki Bakugo
+Alya Césaire                                        = Alya Cesaire
+
+# ==== look like a short form of a known name -- CHECK THESE (2) ==
+#   the tag gave a partial name and exactly one library name in the
+#   same fandom fits. Most useful section to read.
+Alya                                                = Alya Cesaire
+Marinette                                           = Marinette Dupain-Cheng
+
+# ==== look like a group rather than a person (4) ================
+#   pre-set to '-' (dropped). Put a name back if one is really a person,
+#   or list the people the group stands for, separated by commas —
+#   dropping "Dupain-Cheng Family" otherwise loses all three. Each
+#   name may carry its own @ fandom.
+Dupain-Cheng Family                                 = Marinette Dupain-Cheng, Tom Dupain, Sabine Cheng
+Wulfenbach Retinue                                  = Krosp @ Girl Genius, Zeetha @ Girl Genius
+Class 1-A (My Hero Academia)                        = -
+Everyone                                            = -
+
+# ==== only on crossovers -- NAME THE FANDOM AFTER THE @ (2) =====
+#   these books are filed under two fandoms and the library cannot
+#   place these names on its own, so they are dropped unless you
+#   finish the line: 'Krosp = Krosp @ Girl Genius'. Leaving the @
+#   empty skips the tag, which is a fine answer too.
+Krosp                                               = Krosp @ Girl Genius
+Some Ambiguous Person                               = Some Ambiguous Person @
+
+# ==== new characters, kept under their own name (3) =============
+#   not in the library yet; the author tagged them, so they come in
+#   as-is. Hero names needing an alias will be in here -- e.g. set
+#   Chat Noir to Adrien Agreste rather than letting it stand alone.
+Chat Noir | Adrien Agreste                          = Adrien Agreste
+Tikki                                               = Tikki
+Nobby Nobbs                                         = Nobby Nobbs @ Discworld

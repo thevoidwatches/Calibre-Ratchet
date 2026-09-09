@@ -502,6 +502,86 @@ def test_add_book_downloads_verifies_and_records(monkeypatch):
     assert "4242" in dup.json()["detail"]
 
 
+def test_adding_a_book_applies_the_tag_rules(monkeypatch, tmp_path):
+    """calibre imports the epub's own subjects as tags on add, so FanFicFare's
+    "In-Progress" and "Last Update: ..." land in the library unless something
+    rewrites them. The service does it as the book arrives, using the same
+    rules the sweep script uses — see ratchet/tagmap.py."""
+    from ratchet import main as M
+    from ratchet.epub import Chapter
+
+    rules = tmp_path / "tag_rules.txt"
+    rules.write_text('In-Progress = Serial.Ongoing\n'
+                     'Last Update* = -\n'
+                     'Angst = genre: Angst\n', encoding="utf-8")
+    monkeypatch.setattr(M.cfg.tags, "rules_file", str(rules))
+
+    chs = [Chapter(key="c1", url="https://site/1", title="One")]
+    url = "https://www.royalroad.com/fiction/626262"
+    monkeypatch.setattr(M, "normalize_story_url", lambda u: url)
+    monkeypatch.setattr(M, "fetch_remote", lambda u, cfg: M.RemoteStory(
+        title="Tagged Story", site="royalroad.com", status="In-Progress",
+        chapters=chs, raw={}))
+
+    def fake_run_fff(args, cfg):
+        out = next(a for a in args if a.startswith("output_filename=")
+                   ).split("=", 1)[1]
+        Path(out).write_bytes(b"stub epub")
+
+        class Proc:
+            returncode, stdout, stderr = 0, "", ""
+        return Proc()
+    monkeypatch.setattr(M, "run_fff", fake_run_fff)
+    monkeypatch.setattr(M.epub_mod, "extract_chapters", lambda p: chs)
+    monkeypatch.setattr(M.calibre, "add_book",
+                        lambda *a: {"book_id": 5151, "title": "Tagged Story"})
+    # What calibre holds once it has imported the epub's own subjects.
+    monkeypatch.setattr(M.calibre, "books", lambda ids, lib=None, **k: {"5151": {
+        "tags": ["In-Progress", "Last Update: 2026/09/09", "Angst",
+                 "Tropes.Something"],
+        "user_metadata": {"#genre": {"#value#": []}}}})
+    written = {}
+    monkeypatch.setattr(M.calibre, "set_fields",
+                        lambda bid, changes, lib=None: written.update(changes))
+
+    r = client.post("/books/add", json={"url": url}, headers=TOK)
+    assert r.status_code == 200, r.text
+
+    # Renamed, deleted by pattern, moved to a column — and the tag nobody has
+    # ruled on is still there.
+    assert written["tags"] == ["Serial.Ongoing", "Tropes.Something"]
+    assert written["#genre"] == ["Angst"]
+    assert r.json()["tags_changed"]["tags"] == ["Serial.Ongoing", "Tropes.Something"]
+
+
+def test_a_book_the_rules_do_not_touch_costs_no_calibre_write(monkeypatch, tmp_path):
+    from ratchet import main as M
+    rules = tmp_path / "tag_rules.txt"
+    rules.write_text('FanFiction = -\n', encoding="utf-8")
+    monkeypatch.setattr(M.cfg.tags, "rules_file", str(rules))
+    monkeypatch.setattr(M.calibre, "books", lambda ids, lib=None, **k: {"7": {
+        "tags": ["Tropes.Something"], "user_metadata": {}}})
+    calls = []
+    monkeypatch.setattr(M.calibre, "set_fields", lambda *a, **k: calls.append(a))
+    assert M._apply_tag_rules("Fanfiction", 7) == {}
+    assert calls == []
+
+
+def test_tag_rules_never_fail_an_add(monkeypatch, tmp_path):
+    """The book is in the library and verified by then; tags that did not get
+    rewritten are a tidiness problem, not a reason to report failure."""
+    from ratchet import main as M
+    from ratchet.calibre import CalibreError
+    rules = tmp_path / "tag_rules.txt"
+    rules.write_text('In-Progress = Serial.Ongoing\n', encoding="utf-8")
+    monkeypatch.setattr(M.cfg.tags, "rules_file", str(rules))
+
+    def boom(*a, **k):
+        raise CalibreError("calibre went away")
+    monkeypatch.setattr(M.calibre, "books", boom)
+    assert M._apply_tag_rules("Fanfiction", 7) == {}
+
+
 def test_add_book_refuses_when_fresh_epub_fails_verification(monkeypatch):
     from ratchet import main as M
     from ratchet.epub import Chapter

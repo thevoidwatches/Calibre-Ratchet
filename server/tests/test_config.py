@@ -80,13 +80,15 @@ def test_bind_host_property(tmp_path, monkeypatch):
     assert cfg.bind_host == "100.9.9.9"        # resolved only when binding
 
 
-def test_the_scripts_section_defaults_to_the_usual_column_names(tmp_path):
-    """The maintenance scripts read this; the service never does. A config
-    that says nothing about it still loads."""
+def test_the_columns_a_library_files_under_have_the_usual_names(tmp_path):
+    """genre, fandom and majchar sit together under [calibre]: the service
+    shows them, the tag rules move tags into them, and the scripts read and
+    write them. A config that says nothing about them still loads."""
     cfg = load_config(_write_config(tmp_path))
-    assert cfg.scripts.fandom_field == "#fandom"
-    assert cfg.scripts.majchar_field == "#majchar"
-    assert cfg.scripts.downloaded_field == "#downloaded"
+    assert cfg.calibre.genre_field == "#genre"
+    assert cfg.calibre.fandom_field == "#fandom"
+    assert cfg.calibre.majchar_field == "#majchar"
+    assert cfg.scripts.downloaded_field == "#downloaded"   # script-only
 
 
 def test_a_library_names_its_own_tag_roots(tmp_path):
@@ -98,10 +100,29 @@ def test_a_library_names_its_own_tag_roots(tmp_path):
     path = tmp_path / "own.toml"
     path.write_text(
         f'[service]\nauth_token = "tok"\ndata_dir = "{(tmp_path / "d").as_posix()}"\n'
-        '[scripts]\nscheme_roots = ["Tropes", "Content"]\n'
-        'majchar_field = "#characters"\n',
+        '[calibre]\nmajchar_field = "#characters"\n'
+        '[scripts]\nscheme_roots = ["Tropes", "Content"]\n',
         encoding="utf-8")
     cfg = load_config(path)
     assert cfg.scripts.scheme_roots == ["Tropes", "Content"]
-    assert cfg.scripts.majchar_field == "#characters"
-    assert cfg.scripts.fandom_field == "#fandom"     # unlisted keys keep theirs
+    assert cfg.calibre.majchar_field == "#characters"
+    assert cfg.calibre.fandom_field == "#fandom"     # unlisted keys keep theirs
+
+
+def test_the_tag_rules_file_defaults_into_the_config_folder(tmp_path):
+    """Files a reader edits by hand live together in config/, not beside the
+    code that reads them."""
+    from ratchet import tagmap
+    cfg = load_config(_write_config(tmp_path))
+    assert cfg.tags.rules_file == ""
+    assert tagmap.rules_path(cfg).name == "tag_rules.txt"
+    assert tagmap.rules_path(cfg).parent.name == "config"
+
+    path = tmp_path / "own.toml"
+    path.write_text(
+        f'[service]\nauth_token = "tok"\ndata_dir = "{(tmp_path / "d").as_posix()}"\n'
+        f'[tags]\nrules_file = "{(tmp_path / "mine.txt").as_posix()}"\n',
+        encoding="utf-8")
+    assert tagmap.rules_path(load_config(path)).name == "mine.txt"
+
+

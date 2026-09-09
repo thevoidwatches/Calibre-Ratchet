@@ -35,6 +35,12 @@ Copy-Item config.example.toml config.toml
 # Edit config.toml: auth_token (any long random string), calibre URL.
 # calibre creds go in a .env file next to config.toml (both .gitignore'd):
 #   RATCHET_CALIBRE_USERNAME=... / RATCHET_CALIBRE_PASSWORD=...
+# Two kinds of settings, kept apart:
+#   server/config.toml  running the service — where calibre is, the token,
+#                       which columns the UI shows and may write
+#   ../config/          describing your library — what its tags are called,
+#                       which spelling is right, where a character sits.
+#                       See ../config/README.md; each file has an .example.
 
 # Sanity + baseline (no fic-site requests; local library only):
 python scripts\snapshot_baseline.py --config config.toml --limit 5
@@ -213,6 +219,22 @@ Auth on everything except `/health` and the static `/ui` files:
 Every book/category endpoint also accepts `?library=<id>`; omitting it uses
 `[calibre] library_id` from config.toml, and an empty value there means the
 content server's own default library.
+
+## Tags a story arrives with
+
+FanFicFare copies a story's own tags into the epub, and calibre imports them
+when a book is added — so `POST /books/add` brings in whatever the author or
+the site used: `In-Progress`, `FanFiction`, `Last Update: 2026-09-09`, AO3
+freeform tags, character names in the site's spelling.
+
+`../config/tag_rules.txt` says what becomes of each: renamed, moved to a
+column, deleted, or (by default) left alone. The service applies the rules as
+the book arrives; `../.scripts/stray_tags.py` sweeps the backlog and rewrites
+the file listing whatever nobody has ruled on yet. Both go through
+`ratchet/tagmap.py`, so a rule means the same thing either way.
+
+A tag no rule covers is never touched, so an import cannot quietly lose
+something you have not decided about.
 
 ## Tests
 

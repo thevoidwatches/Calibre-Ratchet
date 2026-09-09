@@ -38,6 +38,28 @@ class CalibreError(Exception):
     pass
 
 
+def field_values(meta: dict, field: str) -> list[str]:
+    """One column's value(s) from a book's metadata, as a list of strings.
+
+    Custom columns ("#genre") live under user_metadata, standard ones
+    ("tags", "series") at the top level. Absent, null, single-valued and
+    multi-valued columns all normalise to a list so callers need not know
+    which kind they asked for. Here rather than in a caller because the
+    service, the tag rules and the maintenance scripts all need it and all
+    have to agree about it.
+    """
+    if not field:
+        return []
+    if field.startswith("#"):
+        value = (meta.get("user_metadata") or {}).get(field, {}).get("#value#")
+    else:
+        value = meta.get(field)
+    if value is None:
+        return []
+    values = value if isinstance(value, (list, tuple)) else [value]
+    return [str(v) for v in values if v is not None and str(v) != ""]
+
+
 class CalibreClient:
     """One client, many libraries.
 

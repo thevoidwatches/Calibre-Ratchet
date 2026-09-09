@@ -23,7 +23,7 @@ from pathlib import Path
 # part-way through and leave no record of what was about to change.
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-from ratchet.calibre import CalibreClient, CalibreError
+from ratchet.calibre import CalibreClient, CalibreError, field_values
 from ratchet.config import load_config
 
 
@@ -51,13 +51,12 @@ def parser(description: str) -> argparse.ArgumentParser:
 
 
 def current(meta: dict, field: str) -> list[str]:
-    """A multi-value column's value, wherever calibre keeps it. Custom columns
-    live under user_metadata; built-ins sit at the top level."""
-    if field.startswith("#"):
-        value = (meta.get("user_metadata") or {}).get(field, {}).get("#value#")
-    else:
-        value = meta.get(field)
-    return list(value) if isinstance(value, (list, tuple)) else ([] if value is None else [value])
+    """A multi-value column's value, wherever calibre keeps it.
+
+    The service reads columns through the same function, so the scripts and
+    the tag rules cannot disagree with it about where calibre keeps things.
+    """
+    return field_values(meta, field)
 
 
 def dedupe(tags: list[str]) -> list[str]:

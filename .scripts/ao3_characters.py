@@ -60,6 +60,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import _tagtool  # noqa: E402
+from ratchet import configfiles  # noqa: E402
 from ratchet.calibre import CalibreClient, CalibreError  # noqa: E402
 from ratchet.config import load_config  # noqa: E402
 
@@ -67,7 +68,7 @@ from ratchet.config import load_config  # noqa: E402
 # characters and its fandoms in.
 FIELD = ""
 FANDOM_FIELD = ""
-REVIEW = Path(__file__).with_name("ao3_names.txt")
+REVIEW = configfiles.path("ao3_names.txt")
 NOT_A_CHARACTER = "-"
 
 TAGS = re.compile(r"<[^>]+>")
@@ -214,6 +215,22 @@ def split_label(value: str) -> tuple[str, str | None]:
     """
     name, sep, fandom = value.partition("@")
     return name.strip(), (fandom.strip() or None) if sep else None
+
+
+def split_decision(value: str) -> list[tuple[str, str | None]]:
+    """A review file value into every (name, fandom) it names.
+
+    One tag often means one person, but a group tag means several, and
+    dropping it loses everyone in it:
+
+        Dupain-Cheng Family = Marinette Dupain-Cheng, Tom Dupain
+
+    Each name may carry its own "@ Fandom", so a group split across a
+    crossover still lands in the right places. Commas are safe as the
+    separator because calibre uses them to separate values itself, which
+    means no single tag or character name can contain one.
+    """
+    return [split_label(part) for part in value.split(",") if part.strip()]
 
 
 def read_review() -> dict[str, str]:
@@ -368,10 +385,11 @@ def write_review(args) -> int:
         only = fandom_of(metas[str(book_id)])
         if only:
             for tag in found:
-                name, _lab = split_label(matched.get(tag) or guessed.get(tag)
-                                         or fresh.get(tag) or "")
-                if name:
-                    placeable.setdefault(name, set()).add(only)
+                for name, _lab in split_decision(
+                        matched.get(tag) or guessed.get(tag)
+                        or fresh.get(tag) or ""):
+                    if name:
+                        placeable.setdefault(name, set()).add(only)
 
     needs_label: dict[str, str] = {}
     for book_id, found in tags.items():
@@ -386,7 +404,13 @@ def write_review(args) -> int:
                       fresh if tag in fresh else None)
             if bucket is None:
                 continue
-            name, labelled = split_label(bucket[tag])
+            pairs = split_decision(bucket[tag])
+            # A tag answered with several names has been thought about; asking
+            # again for one fandom to cover them all would be the wrong
+            # question anyway, since each name may carry its own.
+            if len(pairs) != 1:
+                continue
+            name, labelled = pairs[0]
             # A tag already answered with "-" is decided, not outstanding:
             # asking for a fandom for something being dropped is noise.
             if not name or labelled or name == NOT_A_CHARACTER:
@@ -412,18 +436,18 @@ def write_review(args) -> int:
                       fresh if tag in fresh else None)
             if bucket is None:
                 continue
-            name, labelled = split_label(bucket[tag])
-            if not name or name == NOT_A_CHARACTER:
-                continue
-            if labelled:
-                destination[tag].add(labelled)
-            elif len(roots) == 1:
-                destination[tag].add(roots[0])
-            else:
-                known = placeable.get(name) or set()
-                hit = known & set(roots)
-                if len(known) == 1 and len(hit) == 1:
-                    destination[tag].add(next(iter(hit)))
+            for name, labelled in split_decision(bucket[tag]):
+                if not name or name == NOT_A_CHARACTER:
+                    continue
+                if labelled:
+                    destination[tag].add(labelled)
+                elif len(roots) == 1:
+                    destination[tag].add(roots[0])
+                else:
+                    known = placeable.get(name) or set()
+                    hit = known & set(roots)
+                    if len(known) == 1 and len(hit) == 1:
+                        destination[tag].add(next(iter(hit)))
     # The unplaceable ones are headed by what there is to choose between.
     for tag in needs_label:
         for book_id, found in tags.items():
@@ -563,9 +587,9 @@ def prepare(metas: dict) -> None:
         if not only:
             continue
         for tag in tags:
-            name, labelled = split_label(_decided.get(tag, ""))
-            if name and name != NOT_A_CHARACTER:
-                _fandom_of_name.setdefault(name, set()).add(labelled or only)
+            for name, labelled in split_decision(_decided.get(tag, "")):
+                if name and name != NOT_A_CHARACTER:
+                    _fandom_of_name.setdefault(name, set()).add(labelled or only)
 
 
 def transform(existing: list[str], meta: dict) -> list[str]:
@@ -578,22 +602,22 @@ def transform(existing: list[str], meta: dict) -> list[str]:
         return existing              # no fandom at all: nothing to file under
     add = []
     for tag in tags:
-        name, labelled = split_label(_decided.get(tag, ""))
-        if not name or name == NOT_A_CHARACTER:
-            continue
-        if labelled:
-            add.append(f"{labelled}.{name}")
-            continue
-        if len(roots) == 1:
-            add.append(f"{roots[0]}.{name}")
-            continue
-        # A crossover. Take the fandom only when the library is unanimous
-        # about this name and the book is actually filed under it; anything
-        # less would be a guess that no later pass could spot as wrong.
-        seen = _fandom_of_name.get(name) or set()
-        candidates = seen & set(roots)
-        if len(seen) == 1 and len(candidates) == 1:
-            add.append(f"{next(iter(candidates))}.{name}")
+        for name, labelled in split_decision(_decided.get(tag, "")):
+            if not name or name == NOT_A_CHARACTER:
+                continue
+            if labelled:
+                add.append(f"{labelled}.{name}")
+                continue
+            if len(roots) == 1:
+                add.append(f"{roots[0]}.{name}")
+                continue
+            # A crossover. Take the fandom only when the library is unanimous
+            # about this name and the book is actually filed under it;
+            # anything less would be a guess no later pass could spot as wrong.
+            seen = _fandom_of_name.get(name) or set()
+            candidates = seen & set(roots)
+            if len(seen) == 1 and len(candidates) == 1:
+                add.append(f"{next(iter(candidates))}.{name}")
     # Additive, like the tag importer: whatever is already recorded stays.
     return list(existing) + add
 
@@ -604,10 +628,10 @@ if __name__ == "__main__":
                     help="write ao3_names.txt and stop")
     parsed = ap.parse_args()
     _cfg = load_config(parsed.config)
-    FIELD = _cfg.scripts.majchar_field
-    FANDOM_FIELD = _cfg.scripts.fandom_field
+    FIELD = _cfg.calibre.majchar_field
+    FANDOM_FIELD = _cfg.calibre.fandom_field
     if not FIELD:
-        raise SystemExit(f"scripts.majchar_field is not set in {parsed.config}; "
+        raise SystemExit(f"calibre.majchar_field is not set in {parsed.config}; "
                          "there is nowhere to put the characters found.")
     if parsed.review:
         raise SystemExit(write_review(parsed))

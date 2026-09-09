@@ -1,0 +1,79 @@
+# Tags that arrived from the source sites rather than from your scheme.
+#
+# Copy to tag_rules.txt, or just run
+#     cd server && python ../.scripts/stray_tags.py --review
+# which writes the real thing: every stray tag in your library, grouped by
+# book, each line pre-filled with what it would do. Editing is then a matter
+# of correcting the exceptions rather than typing the list out.
+#
+# Set the right-hand side to one of:
+#
+#   -                             delete the tag
+#   Some.Scheme.Tag               rename it, staying in tags
+#   genre: Value                  add to your genre column, drop the tag
+#   fandom: Value                 add to your fandom column, drop the tag
+#   majchar: Fandom.Name          add to your character column, drop the tag
+#   #anycolumn: Value             add to a column named outright
+#   (blank)                       leave the tag alone for now
+#
+# The short names before a colon are the columns configured under [calibre]
+# in server/config.toml. A move is additive: the value is added, never
+# replacing what is already there, and a book that already records it simply
+# loses the tag.
+#
+# A tag with no rule is LEFT ALONE, so an import can never quietly lose
+# something nobody has ruled on. It turns up in the next --review instead.
+#
+# A tag can stand for a group rather than one thing, and dropping it would
+# lose all of them. Separate several values with commas:
+#
+#   Dupain-Cheng Family = majchar: Miraculous.Tom Dupain, Miraculous.Sabine Cheng
+#
+# A column named part-way along applies to everything after it, so one tag
+# can become things in several places without naming a column twice. Use
+# "tags:" to go back to the tags themselves:
+#
+#   The Watch          = Tropes.Found Family, majchar: Discworld.Sam Vimes, Discworld.Nobby Nobbs
+#   The Watch          = majchar: Discworld.Sam Vimes, tags: Tropes.Found Family
+#
+# A rule naming a column you have not configured is left alone entirely —
+# never half-applied — so a typo cannot quietly do some of what you meant.
+#
+# The service applies these as each book is added, so most tags never reach
+# this file twice. A name on the left may use * and ? to cover a family of
+# tags whose values keep changing. An exact name always wins over a pattern,
+# whatever the order here.
+
+# ---- what a serial's status should become -------------------------------
+In-Progress                    = Serial.Ongoing
+Completed                      = Serial.Complete
+Stubbed                        = Serial.Stubbed
+Hiatus                         = Serial.Hiatus
+
+# ---- noise FanFicFare adds by default -----------------------------------
+# "Last Update: 2026/09/09" is a different tag every day, which is what the
+# pattern is for. (You can also stop FanFicFare emitting these at all, with
+# extra_options = ["-o", "include_subject_tags=genre, category, characters"]
+# under [fanficfare] in server/config.toml.)
+Last Update*                   = -
+FanFiction                     = -
+
+# ---- site tags that belong in a column ----------------------------------
+Angst                          = genre: Angst
+Slow Burn                      = genre: Romance.Slow Burn
+Worm                           = fandom: Worm
+Taylor Hebert                  = majchar: Worm.Taylor Hebert
+
+# ---- site tags your own scheme has a home for ---------------------------
+Child Abuse                    = Key Events.Child Abuse
+Unreliable Narrator            = Tropes.Unreliable Narrator
+
+# ---- a tag that names a group, not one thing ----------------------------
+Dupain-Cheng Family            = majchar: Miraculous.Marinette Dupain-Cheng, Miraculous.Tom Dupain, Miraculous.Sabine Cheng
+# One tag, one trope and three people — the column carries to the end of the
+# line, so it is named once.
+The Watch                      = Groups.Discworld.The Watch, majchar: Discworld.Sam Vimes, Discworld.Carrot Ironfoundersson, Discworld.Nobby Nobbs
+
+# ---- not decided yet ----------------------------------------------------
+# A blank right-hand side means "ask me again next time".
+will add tags as needed        =

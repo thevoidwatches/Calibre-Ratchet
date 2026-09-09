@@ -24,6 +24,9 @@ identifier_key = "url"     # where the FFF plugin stores story URLs (fallback on
                            # the epub's dc:source is used first)
 genre_field = "#genre"     # custom column shown beside tags in the book list
                            # ("" to show none)
+fandom_field = "#fandom"   # the other two columns this library files under.
+majchar_field = "#majchar" # A tag rule can move a tag into any of the three,
+                           # and the maintenance scripts read and write them.
 row_field = ""             # custom column shown at the right of the title line
                            # in the book list, for books with no series — which
                            # is what otherwise sits there. A library without the
@@ -60,11 +63,15 @@ min_seconds_between_site_requests = 5.0
 # ignores it. Each names a calibre custom column, and a script whose column
 # is blank says so and does nothing rather than guessing at another.
 [scripts]
-fandom_field = "#fandom"        # multi-value text: which fandom(s) a story is
-majchar_field = "#majchar"      # multi-value text: who it is actually about
 downloaded_field = "#downloaded"  # boolean: FanFicFare can update this book
 # Top-level tag names your own scheme owns. A tag under any other root is
 # taken to have come from a source site, which is what stray_tags.py sorts
 # out; leave it empty and that script stops rather than calling everything
 # stray. e.g. ["Tropes", "Content", "Format", "Key Events"]
 scheme_roots = []
+
+# What becomes of the tags a story arrives wearing. The rules themselves are a
+# file, not a table here: there are hundreds in a working library and the
+# scripts rewrite it for you to edit. Blank means config/tag_rules.txt.
+[tags]
+rules_file = ""

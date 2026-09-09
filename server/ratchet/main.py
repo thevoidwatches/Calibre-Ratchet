@@ -23,7 +23,9 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import epub as epub_mod
+from . import tagmap
 from .calibre import CalibreClient, CalibreError
+from .calibre import field_values as calibre_field_values
 from .chapterkeys import site_of
 from .config import Config, load_config
 from .db import Sidecar
@@ -222,23 +224,38 @@ def _backup(library_id: str, book_id: int, epub_path: str) -> str:
     return str(dest)
 
 
-def _field_values(meta: dict, field: str) -> list[str]:
-    """One column's value(s) as a list of strings.
+# The one reader of a column's value, shared with the tag rules and the
+# maintenance scripts so all three agree about where calibre keeps things.
+_field_values = calibre_field_values
 
-    Custom columns ("#genre") live under user_metadata, standard ones
-    ("tags", "series") at the top level. Absent, null, single-valued and
-    multi-valued columns all normalise to a list so callers need not know
-    which kind they asked for."""
-    if not field:
-        return []
-    if field.startswith("#"):
-        value = (meta.get("user_metadata") or {}).get(field, {}).get("#value#")
-    else:
-        value = meta.get(field)
-    if value is None:
-        return []
-    values = value if isinstance(value, (list, tuple)) else [value]
-    return [str(v) for v in values if v is not None and str(v) != ""]
+
+def _apply_tag_rules(lib: str, book_id: int) -> dict:
+    """Rewrite the tags a newly added book arrived with, per the rules file.
+
+    calibre imports the epub's own subjects as tags when a book is added, so
+    this runs afterwards rather than on the file: FanFicFare writes whatever
+    the site used, and the rules say which of those become a tag of your own,
+    which move to a column, and which go. A tag no rule covers is left alone,
+    so nothing is lost to an import — it turns up in the next review instead.
+
+    Never fails an add. The book is already in the library and verified; tags
+    that did not get rewritten are a tidiness problem, and stray_tags.py
+    sweeps them up later.
+    """
+    rules = tagmap.load(tagmap.rules_path(cfg))
+    if not rules:
+        return {}
+    try:
+        meta = calibre.books([book_id], lib).get(str(book_id)) or {}
+        changes = tagmap.apply(meta, rules, tagmap.columns_from(cfg))
+        if changes:
+            calibre.set_fields(book_id, changes, lib)
+            log.info("add: book %s — tag rules applied: %s", book_id, changes)
+        return changes
+    except CalibreError as e:
+        log.warning("add: book %s — tag rules could not be applied: %s",
+                    book_id, e)
+        return {}
 
 
 def _genre_of(meta: dict) -> list[str]:
@@ -413,6 +430,8 @@ def add_book(url: str = Body(embed=True), library: str | None = LIB_Q) -> dict:
         except CalibreError as e:
             log.warning("add: cover for book %s could not be set — %s", book_id, e)
 
+    tags_changed = _apply_tag_rules(lib, book_id)
+
     sidecar.save_snapshot(lib, book_id, norm, site_of(norm),
                           [c.as_dict() for c in post], baseline="exact")
     log.info('add: "%s" → book %s in %s (%d chapters%s)',
@@ -421,7 +440,8 @@ def add_book(url: str = Body(embed=True), library: str | None = LIB_Q) -> dict:
     sidecar.log_event(lib, book_id, "added", {"url": norm, "chapters": len(post)})
     return {"book_id": book_id, "title": res.get("title") or remote.title,
             "chapter_count": len(post), "story_url": norm,
-            "site_status": remote.status, "cover_set": cover_set}
+            "site_status": remote.status, "cover_set": cover_set,
+            "tags_changed": tags_changed}
 
 
 @app.get("/books/{book_id}", dependencies=AUTH)

@@ -1,0 +1,63 @@
+# Copy to tag_scheme.toml and describe your own library. Every table is
+# optional; a script that needs one you have not written says which and stops.
+#
+# The examples below are illustrative, not defaults — your tag roots, your
+# spellings, your characters. See config/README.md.
+
+# Genres worth carrying over as a tag, for a book that has the genre and no
+# tag already sitting on that branch.
+genres_as_tags = [
+    "Time Travel.Peggy Sue",
+]
+
+
+# One name spelled two ways, or spelled wrongly. Applied to every segment of
+# every tag, and to each side of an "X!Y" identity compound, so a name reads
+# the same way wherever it appears. Keys are whole segments, never
+# substrings, so "Sam" cannot eat "Sam Vimes".
+[name_fixes]
+"Izuku MIdoriya" = "Izuku Midoriya"      # a plain misspelling
+"Midoriya Izuku" = "Izuku Midoriya"      # name order
+"Vimes" = "Sam Vimes"                    # a surname with no full form nearby
+
+
+# A tag, and everything filed under it, moves somewhere else: "Erotica" here
+# also carries "Erotica.Anything" across.
+[tag_moves]
+"Erotica" = "Content.Erotica"
+"Jobs.Generic.Miko.Ranma Saotome" = "Jobs.Generic.Miko.Akane Tendo"
+
+
+# A book with no fandom recorded, whose own tags already say what it is.
+# The longest matching prefix wins.
+[fandom_from_tags]
+"Powers.Specific.Worm." = "Worm"
+
+
+# Which segment counts hold a character name, per tag root: a tag with that
+# many segments has a character in its last one. Counts are 1-based, so
+# "Gender.Female.Marinette Dupain-Cheng" is 3.
+[characters.depths]
+"Gender" = [3]
+"Powers" = [3, 4, 5]
+"Romance" = [3]
+
+# Roots whose tags name the character's OWN fandom, and which segment holds
+# it. Most roots do not: "Powers.Specific.Marvel.Rogue.Taylor Hebert" says
+# Taylor has Rogue's powers, not that Taylor is a Marvel character.
+[characters.fandom_segment]
+"Romance" = 1
+
+# Characters whose fandom nothing else in the library settles.
+[characters.fandoms]
+"Percy Jackson" = "Riordanverse"
+
+[characters]
+# Leaves that sit where a character would but are not one: groups, factions,
+# families, mantles worn by someone else, and the placeholders used when a
+# tag applies to everybody.
+not_characters = [
+    "Everyone",
+    "Multiple Characters",
+    "Robin",
+]

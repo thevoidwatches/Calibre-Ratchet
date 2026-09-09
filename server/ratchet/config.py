@@ -89,6 +89,11 @@ class CalibreCfg:
     identifier_key: str = "url"  # FFF plugin's default identifier for the story URL
     # Custom column shown beside tags in the book list. Blank to show none.
     genre_field: str = "#genre"
+    # The other two columns this library files stories under. Named here
+    # beside genre_field because the same three are what a tag rule may move
+    # a tag into, and what the maintenance scripts read and write.
+    fandom_field: str = "#fandom"      # multi-value text: which fandom(s)
+    majchar_field: str = "#majchar"    # multi-value text: who it is about
     # Custom column shown at the right of the title line in the book list, for
     # books with no series — which is what otherwise occupies that space. A
     # library without the column simply shows nothing there. Blank for none.
@@ -140,10 +145,6 @@ class ScriptsCfg:
     too many. Every one is the name of a calibre custom column, and a script
     whose column is left blank says so and does nothing rather than guessing.
     """
-    # Multi-value text: which fandom(s) a story belongs to.
-    fandom_field: str = "#fandom"
-    # Multi-value text: the characters a story is actually about.
-    majchar_field: str = "#majchar"
     # Boolean: whether FanFicFare can update this book.
     downloaded_field: str = "#downloaded"
     # Top-level tag names your own scheme owns, e.g. ["Tropes", "Content"].
@@ -155,6 +156,19 @@ class ScriptsCfg:
 
 
 @dataclass
+class TagsCfg:
+    """What becomes of the tags a story arrives with — see ratchet/tagmap.py.
+
+    The rules themselves are a file rather than a config table: there are
+    hundreds of them in a working library, they are edited by hand after
+    every import, and .scripts/stray_tags.py rewrites the file to list what
+    is still undecided.
+    """
+    # Where those rules live. Blank means config/tag_rules.txt.
+    rules_file: str = ""
+
+
+@dataclass
 class Config:
     service: ServiceCfg
     calibre: CalibreCfg
@@ -163,6 +177,7 @@ class Config:
     # Defaulted rather than required: nothing the service does reads it, so a
     # Config built in code has no reason to have to supply one.
     scripts: ScriptsCfg = field(default_factory=ScriptsCfg)
+    tags: TagsCfg = field(default_factory=TagsCfg)
 
     @property
     def bind_host(self) -> str:
@@ -226,6 +241,7 @@ def load_config(path: str | Path) -> Config:
         fanficfare=_section(FFFCfg, data, "fanficfare"),
         politeness=_section(PolitenessCfg, data, "politeness"),
         scripts=_section(ScriptsCfg, data, "scripts"),
+        tags=_section(TagsCfg, data, "tags"),
     )
     env_file = _load_env_file(Path(path).resolve().parent / ".env")
     for var, section, attr in _ENV_OVERRIDES:

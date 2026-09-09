@@ -16,23 +16,14 @@ A stray tag can be:
   something the scheme has a home for   "Child Abuse" -> Key Events.Child Abuse
   noise                                 "will add tags as needed"
 
-Deciding which is a judgement call per book, so it is made in
-stray_tags.txt rather than here. Regenerate that file with --review after an
-import; decisions already in it are kept.
-
-    -                       delete the tag
-    Some.Scheme.Tag         rename it, staying in tags
-    genre: Value            add to #genre, drop the tag
-    fandom: Value           add to #fandom, drop the tag
-    majchar: Fandom.Name    add to #majchar, drop the tag
-    (blank)                 leave it alone for now
-
-The moves are additive at the far end: a value is added to #genre or
-#majchar, never replacing what is there, so a book that already records the
-same thing is left as it is and the tag still goes away.
+Deciding which is a judgement call, so it is made in the rules file rather
+than here — see ratchet/tagmap.py for the format, which this shares with the
+service. The service applies those rules as each book is added, so this is
+the sweep for the backlog and for tags nobody has ruled on yet. Regenerate
+the file with --review after an import; rules already in it are kept.
 
 Usage (from server/, where config.toml lives):
-    python ../.scripts/stray_tags.py --review    # write stray_tags.txt
+    python ../.scripts/stray_tags.py --review    # rewrite the rules file
     python ../.scripts/stray_tags.py             # dry run
     python ../.scripts/stray_tags.py --apply
     python ../.scripts/stray_tags.py --rollback stray-rollback-<n>.json
@@ -48,55 +39,29 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import _tagtool  # noqa: E402
+from ratchet import tagmap  # noqa: E402
 from ratchet.calibre import CalibreClient  # noqa: E402
 from ratchet.config import load_config  # noqa: E402
 
-REVIEW = Path(__file__).with_name("stray_tags.txt")
-DELETE = "-"
-
 # Filled from config.toml on the way in: which tag roots this library's own
-# scheme owns, and which column each "kind: value" decision writes to. Both
-# describe a particular library rather than anything universal, which is why
-# they are configuration and not code.
+# scheme owns, where its rules live, and which column a "kind: value" rule
+# writes to. All three describe a particular library rather than anything
+# universal, which is why they are configuration and not code.
 SCHEME_ROOTS: set[str] = set()
 COLUMNS: dict[str, str] = {}
+RULES: Path | None = None
 
 
 def configure(cfg) -> None:
-    """Adopt the columns and tag roots this library uses."""
-    global SCHEME_ROOTS
+    """Adopt the rules file, columns and tag roots this library uses."""
+    global SCHEME_ROOTS, COLUMNS, RULES
     SCHEME_ROOTS = set(cfg.scripts.scheme_roots)
-    for kind, field in (("genre", cfg.calibre.genre_field),
-                        ("fandom", cfg.scripts.fandom_field),
-                        ("majchar", cfg.scripts.majchar_field)):
-        if field:
-            COLUMNS[kind] = field
+    COLUMNS = tagmap.columns_from(cfg)
+    RULES = tagmap.rules_path(cfg)
 
 
 def is_stray(tag: str) -> bool:
     return tag.split(".")[0] not in SCHEME_ROOTS
-
-
-def read_decisions() -> dict[str, str]:
-    decided: dict[str, str] = {}
-    unreadable = []
-    if not REVIEW.exists():
-        return decided
-    for number, line in enumerate(
-            REVIEW.read_text(encoding="utf-8").splitlines(), start=1):
-        if not line.strip() or line.lstrip().startswith("#"):
-            continue
-        if "=" not in line:
-            unreadable.append((number, line.strip()))
-            continue
-        left, _, right = line.partition("=")
-        decided[left.strip()] = right.strip()
-    if unreadable:
-        print(f"WARNING: {len(unreadable)} line(s) in {REVIEW.name} have no "
-              f"'=' and were ignored:")
-        for number, text in unreadable[:10]:
-            print(f"   line {number}: {text}")
-    return decided
 
 
 def stray_tags(metas: dict) -> dict[str, list[int]]:
@@ -109,43 +74,23 @@ def stray_tags(metas: dict) -> dict[str, list[int]]:
     return found
 
 
-_decided: dict[str, str] = {}
+_rules = tagmap.Rules()
 
 
 def prepare(metas: dict) -> None:
-    _decided.clear()
-    _decided.update(read_decisions())
+    global _rules
+    _rules = tagmap.load(RULES)
+    for number, text in _rules.bad_lines[:10]:
+        print(f"WARNING: {RULES.name} line {number} has no '=' — ignored: {text}")
 
 
 def transform(meta: dict) -> dict:
-    """The columns this book should end up with, given the decisions."""
-    tags = meta.get("tags") or []
-    if not any(is_stray(t) for t in tags):
-        return {}
-    keep: list[str] = []
-    additions: dict[str, list[str]] = {}
-    for tag in tags:
-        if not is_stray(tag):
-            keep.append(tag)
-            continue
-        decision = _decided.get(tag, "")
-        if not decision:
-            keep.append(tag)                 # undecided: leave it where it is
-            continue
-        if decision == DELETE:
-            continue
-        kind, sep, value = decision.partition(":")
-        kind, value = kind.strip(), value.strip()
-        if sep and kind in COLUMNS:
-            column = COLUMNS[kind]
-            if value:
-                additions.setdefault(
-                    column, list(_tagtool.current(meta, column))).append(value)
-        else:
-            keep.append(decision)            # a rename, still a tag
-    out = {"tags": keep}
-    out.update(additions)
-    return out
+    """The columns this book should end up with, given the rules.
+
+    The same call the service makes when a book is added, so a rule does the
+    same thing whether it was applied on the way in or swept up afterwards.
+    """
+    return tagmap.apply(meta, _rules, COLUMNS)
 
 
 def write_review(args) -> int:
@@ -158,7 +103,8 @@ def write_review(args) -> int:
     for i in range(0, len(ids), 200):
         metas.update(calibre.books(ids[i:i + 200], library_id=args.library))
 
-    decided = read_decisions()
+    rules = tagmap.load(RULES)
+    decided = rules.exact
     found = stray_tags(metas)
     bybook: dict[int, list[str]] = defaultdict(list)
     for tag, books in found.items():
@@ -168,7 +114,11 @@ def write_review(args) -> int:
     # A decision outlives the tag it was about. The same site tags come back
     # with the next import, so an answer already given is kept in the file and
     # applied again rather than being asked for a second time.
+    # Patterns are general rules rather than answers about one tag, so they
+    # are always carried over; an exact name is only carried when the tag it
+    # was about is not on anything at the moment.
     standing = {t: v for t, v in decided.items() if t not in found and v}
+    standing.update({p: v for p, v in rules.globs})
 
     lines = [
         "# Tags that arrived from the source sites rather than from your scheme.",
@@ -177,10 +127,19 @@ def write_review(args) -> int:
         "#",
         "#   -                             delete the tag",
         "#   Some.Scheme.Tag               rename it, staying in tags",
-        "#   genre: Value                  add to #genre, drop the tag",
-        "#   fandom: Value                 add to #fandom, drop the tag",
-        "#   majchar: Fandom.Name          add to #majchar, drop the tag",
+        *[f"#   {kind}: Value{' ' * (20 - len(kind))}add to {column}, drop the tag"
+          for kind, column in sorted(COLUMNS.items())],
         "#   (blank)                       leave the tag alone for now",
+        "#",
+        "# The service applies these when a book is added, so most tags never",
+        "# reach this file twice. A name on the left may use * and ? to cover",
+        "# a family of tags whose values keep changing, e.g.",
+        "#   Last Update*                  = -",
+        "# An exact name always wins over a pattern.",
+        "#",
+        "# A tag that names a group stands for several things; separate them",
+        "# with commas rather than losing them all to a '-', e.g.",
+        "#   The Watch                     = majchar: Disc.Vimes, Disc.Nobby",
         "#",
         "# Grouped by book, because the same word can mean different things on",
         "# different ones. A tag on several books is listed under each, and a",
@@ -191,7 +150,7 @@ def write_review(args) -> int:
     for book in sorted(bybook):
         meta = metas[str(book)]
         lines.append(f"#   {book}  {(meta.get('title') or '')[:46]}")
-        shown = " ".join(f"{kind}={_tagtool.current(meta, COLUMNS[kind])}"
+        shown = " ".join(f"{kind}={tagmap.field_values(meta, COLUMNS[kind])}"
                          for kind in ("fandom", "genre") if kind in COLUMNS)
         lines.append(f"#     {shown}")
         for tag in sorted(bybook[book]):
@@ -206,21 +165,21 @@ def write_review(args) -> int:
         for tag in sorted(standing):
             lines.append(f"{tag.ljust(swidth)}= {standing[tag]}")
         lines.append("")
-    REVIEW.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    RULES.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     undecided = sum(1 for t in found if not decided.get(t))
     print(f"{len(found)} stray tags on {len(bybook)} books")
     print(f"   {len(found) - undecided:>4} already decided")
     print(f"   {undecided:>4} need a decision")
     print(f"   {len(standing):>4} standing decisions kept for future imports")
-    print(f"\nwritten to {REVIEW}")
+    print(f"\nwritten to {RULES}")
     return 0
 
 
 if __name__ == "__main__":
     ap = _tagtool.parser(__doc__)
     ap.add_argument("--review", action="store_true",
-                    help="write stray_tags.txt and stop")
+                    help="write the rules file and stop")
     parsed = ap.parse_args()
     configure(load_config(parsed.config))
     if not SCHEME_ROOTS:
