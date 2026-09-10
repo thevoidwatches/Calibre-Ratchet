@@ -172,6 +172,15 @@ class ScriptsCfg:
     # out. Left empty that script has no way to tell the two apart, so it
     # says so and stops instead of treating your whole vocabulary as stray.
     scheme_roots: list[str] = field(default_factory=list)
+    # Roots under which a book holds one value at a time, e.g. ["Serial"]:
+    # a story is ongoing or finished, not both. Everywhere else a second
+    # value is simply another true thing about the book — a book can be
+    # "Trope.Progression" and "Trope.Reincarnation" at once — so this cannot
+    # be worked out from the shape of the tags and has to be said.
+    #
+    # Only refresh_site_tags.py reads it, to tell a site that has moved on
+    # from a tag you chose yourself: it reports those rather than picking.
+    exclusive_roots: list[str] = field(default_factory=list)
 
 
 @dataclass

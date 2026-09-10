@@ -109,6 +109,35 @@ def test_a_library_names_its_own_tag_roots(tmp_path):
     assert cfg.calibre.fandom_field == "#fandom"     # unlisted keys keep theirs
 
 
+def test_a_library_says_which_tag_families_hold_one_value(tmp_path):
+    """Nothing about a tag's shape says whether a second value under the same
+    root contradicts the first or simply adds to it, so it is declared."""
+    cfg = load_config(_write_config(tmp_path))
+    assert cfg.scripts.exclusive_roots == []
+
+    path = tmp_path / "exclusive.toml"
+    path.write_text(
+        f'[service]\nauth_token = "tok"\ndata_dir = "{(tmp_path / "d").as_posix()}"\n'
+        '[scripts]\nexclusive_roots = ["Serial"]\n',
+        encoding="utf-8")
+    assert load_config(path).scripts.exclusive_roots == ["Serial"]
+
+
+def test_where_last_updated_is_recorded_is_the_librarys_to_say(tmp_path):
+    """Blank by default: recording it needs either a column of your own or
+    calibre's Date overwritten, and neither is a decision to make for
+    someone."""
+    cfg = load_config(_write_config(tmp_path))
+    assert cfg.calibre.lastupdate_field == ""
+
+    path = tmp_path / "lastupdate.toml"
+    path.write_text(
+        f'[service]\nauth_token = "tok"\ndata_dir = "{(tmp_path / "d").as_posix()}"\n'
+        '[calibre]\nlastupdate_field = "#lastupdated"\n',
+        encoding="utf-8")
+    assert load_config(path).calibre.lastupdate_field == "#lastupdated"
+
+
 def test_the_tag_rules_file_defaults_into_the_config_folder(tmp_path):
     """Files a reader edits by hand live together in config/, not beside the
     code that reads them."""

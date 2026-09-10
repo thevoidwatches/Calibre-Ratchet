@@ -84,6 +84,12 @@ downloaded_field = "#downloaded"  # boolean: FanFicFare can update this book
 # out; leave it empty and that script stops rather than calling everything
 # stray. e.g. ["Tropes", "Content", "Format", "Key Events"]
 scheme_roots = []
+# Roots under which a book holds one value at a time, e.g. ["Serial"] — a
+# story is ongoing or finished, not both. Anywhere else a second value is
+# just another true thing (a book can be Trope.Progression and
+# Trope.Reincarnation at once), so this cannot be inferred from the tags.
+# refresh_site_tags.py reports a disagreement here instead of picking a side.
+exclusive_roots = []
 
 # What becomes of the tags a story arrives wearing. The rules themselves are a
 # file, not a table here: there are hundreds in a working library and the
