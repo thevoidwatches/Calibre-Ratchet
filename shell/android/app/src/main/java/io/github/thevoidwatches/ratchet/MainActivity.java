@@ -6,6 +6,7 @@ import android.os.Bundle;
 import androidx.activity.OnBackPressedCallback;
 
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.CapConfig;
 
 public class MainActivity extends BridgeActivity {
 
@@ -23,17 +24,44 @@ public class MainActivity extends BridgeActivity {
         if (text != null && !text.trim().isEmpty()) pendingSharedText = text.trim();
     }
 
+    /** Capacitor's configuration, pointed at the server this device was told
+     *  about.
+     *
+     *  The address cannot live in capacitor.config.json: that file is baked
+     *  into the APK, so everyone would need an APK of their own, built with
+     *  a JDK and the Android SDK, to say where their server is. Supplying the
+     *  config here instead lets one APK serve anybody. Everything except the
+     *  address still comes from the bundled file, so there is one place to
+     *  change the rest — the Builder's own defaults differ from it (https,
+     *  and no error page).
+     */
+    private CapConfig configFor(String server) {
+        CapConfig bundled = CapConfig.loadDefault(this);
+        return new CapConfig.Builder(this)
+                .setServerUrl(server + "/ui/")
+                .setErrorPath(bundled.getErrorPath())
+                .setAndroidScheme(bundled.getAndroidScheme())
+                .setHostname(bundled.getHostname())
+                .create();
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(RatchetNativePlugin.class);
         remember(getIntent());
+        // Before super.onCreate, which builds the bridge from `config`. With
+        // no address saved it stays null, Capacitor loads the bundled file
+        // as it stands, and that has no server.url — so the app opens on its
+        // own index.html, which is the page that asks for one.
+        String server = ShellBridge.savedServer(this);
+        if (server != null) config = configFor(server);
         super.onCreate(savedInstanceState);
-        // For the bundled offline page, which Capacitor's injected runtime
-        // does not reach (see OfflineBridge). Attached to the WebView itself,
+        // For the bundled pages, which Capacitor's injected runtime does not
+        // reliably reach (see ShellBridge). Attached to the WebView itself,
         // so it exists on every page regardless of origin.
         if (getBridge() != null) {
             getBridge().getWebView().addJavascriptInterface(
-                    new OfflineBridge(this), "RatchetOffline");
+                    new ShellBridge(this), "RatchetShell");
             // Installed after the bridge has set its own: ours only corrects
             // prompt(), inheriting the rest (file chooser, permissions).
             getBridge().getWebView().setWebChromeClient(

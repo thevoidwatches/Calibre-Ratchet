@@ -8,12 +8,6 @@
 // behind the `document` guard at the bottom.
 "use strict";
 
-// Replaced by build-error-page.mjs with the origin of server.url from
-// capacitor.config.json, so the offline page and the app cannot disagree
-// about where the server is. The value below is only what the node tests
-// see — the address itself belongs to one machine, not to the project.
-export const SERVER = "http://localhost:8484";
-
 // ---------------- pure helpers (node-tested) ----------------
 
 /** "The Abyss #2" — same shape the served UI shows next to a title. */
@@ -96,6 +90,15 @@ function plugins() {
   return (window.Capacitor && window.Capacitor.Plugins) || null;
 }
 
+/** Where the server is, as the app has it saved ("http://host:8484"), or ""
+ *  when it cannot say. Asked of the shell rather than written into this
+ *  page, so one APK serves anybody and the page cannot disagree with the app
+ *  about the address. */
+function server() {
+  try { return (window.RatchetShell && window.RatchetShell.getServer()) || ""; }
+  catch (e) { return ""; }
+}
+
 // Same preference order as the served UI's storage.js.
 const READER_PACKAGES = ["com.flyersoft.moonreaderp", "com.flyersoft.moonreader"];
 
@@ -115,15 +118,15 @@ function parseCatalog(raw) {
 /** {books} on success, {error} with a human-readable reason otherwise, so
  *  the page can say WHY the offline library is unavailable.
  *
- *  RatchetOffline (the shell's addJavascriptInterface object) is the normal
+ *  RatchetShell (the shell's addJavascriptInterface object) is the normal
  *  path: Capacitor's injected runtime never reaches this page — with an
  *  external server.url its bridge script is origin-restricted to the server,
  *  and this page is served from http://localhost. The Capacitor branch stays
  *  as a fallback for any build where injection does happen. */
 async function loadCatalog() {
-  if (window.RatchetOffline) {
+  if (window.RatchetShell) {
     let raw;
-    try { raw = window.RatchetOffline.readCatalog(); }
+    try { raw = window.RatchetShell.readCatalog(); }
     catch (e) { return {error: "catalog read failed: " + ((e && e.message) || e)}; }
     if (!raw) return {error: "no catalog yet — open the app online once"};
     return parseCatalog(raw);
@@ -142,10 +145,10 @@ async function loadCatalog() {
 }
 
 async function openBook(b) {
-  if (window.RatchetOffline) {
+  if (window.RatchetShell) {
     let msg;
     try {
-      msg = window.RatchetOffline.openBook(
+      msg = window.RatchetShell.openBook(
         b.library, b.file, JSON.stringify(READER_PACKAGES));
     } catch (e) { msg = (e && e.message) || String(e); }
     if (msg) alert("Could not open — " + msg);
@@ -170,10 +173,12 @@ async function openBook(b) {
 /** Reachable at all is the question, so an opaque no-cors probe is enough —
  *  it resolves only when something answered at that address. */
 async function serverUp() {
+  const origin = server();
+  if (!origin) return false;
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 4000);
   try {
-    await fetch(SERVER + "/health", {mode: "no-cors", signal: ctl.signal,
+    await fetch(origin + "/health", {mode: "no-cors", signal: ctl.signal,
                                      cache: "no-store"});
     return true;
   } catch (e) { return false; }
@@ -249,10 +254,22 @@ function renderList() {
 
 function render() { renderChips(); renderList(); }
 
-const retry = () => location.replace(SERVER + "/ui/");
+const retry = () => { if (server()) location.replace(server() + "/ui/"); };
+
+/** Say which address went unanswered, and offer the way to change it: a
+ *  mistyped address and a PC that is switched off look the same from here,
+ *  and only one of them is fixed by waiting. */
+function showServer() {
+  const origin = server();
+  if (!origin || !window.RatchetShell) return;
+  $("serverAddr").textContent = origin;
+  $("btnChange").onclick = () => window.RatchetShell.forgetServer();
+  $("serverLine").hidden = false;
+}
 
 async function init() {
   $("btnRetry").onclick = retry;
+  showServer();
 
   const cat = await loadCatalog();
   if (cat.books) {

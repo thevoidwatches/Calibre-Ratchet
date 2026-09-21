@@ -48,7 +48,7 @@ public class RatchetNativePlugin extends Plugin {
      *  intents even when the user has picked Moon+ elsewhere. Targeting the
      *  package sidesteps resolution entirely.
      *
-     *  Shared with OfflineBridge, which opens books from the bundled offline
+     *  Shared with ShellBridge, which opens books from the bundled offline
      *  page where the Capacitor plugin runtime is unavailable.
      */
     static String openWithPackages(android.app.Activity activity, java.io.File file,

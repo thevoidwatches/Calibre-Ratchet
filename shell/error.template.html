@@ -24,8 +24,14 @@
   <button id="btnRetry">Retry</button>
 </header>
 <main id="main" class="plain">
-  <p id="statusText">The server didn't answer. Check that the PC is on, the
-  service is running (run.bat), and Tailscale is connected on this device.</p>
+  <!-- One child while the page is message-only: main.plain centres its
+       children in a row, so two paragraphs would sit side by side. -->
+  <div id="notice">
+    <p id="statusText">The server didn't answer. Check that the PC is on, the
+    service is running (run.bat), and Tailscale is connected on this device.</p>
+    <p id="serverLine" hidden>Server: <span id="serverAddr"></span>
+      <button id="btnChange">Change</button></p>
+  </div>
   <section id="library" hidden>
     <div class="row">
       <input id="q" type="search" placeholder="search title, author, series">

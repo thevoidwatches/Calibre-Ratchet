@@ -45,9 +45,19 @@ input, select { font: inherit; border: 2px solid var(--fg); border-radius: 6px;
 
 .row { display: flex; gap: 8px; margin: 8px 0; flex-wrap: wrap;
        align-items: center; }
-.row input[type=search] { flex: 1; min-width: 120px; }
+.row input[type=search], .row input[type=text] { flex: 1; min-width: 120px; }
 
 #statusText { color: var(--muted); }
+
+/* Where the server is, and the way to say otherwise — on the offline page
+   because a wrong address is one of the reasons to be looking at it. */
+#serverLine { color: var(--muted); font-size: 0.9rem; overflow-wrap: anywhere; }
+#serverLine button { min-height: 34px; padding: 4px 10px; margin-left: 6px; }
+
+/* The setup page (index.html). */
+.setup { width: 100%; }
+.hint { color: var(--muted); font-size: 0.9rem; }
+code { overflow-wrap: anywhere; }
 #count { color: var(--muted); font-size: 0.9rem; margin: 4px 0; }
 
 .chiprow { margin: 6px 0; }

@@ -1,4 +1,38 @@
 <!doctype html>
-<!-- Unused at runtime: the shell loads the served UI (see capacitor.config
-     server.url). Capacitor requires a webDir with an index.html to exist. -->
-<meta charset="utf-8"><title>Ratchet</title>
+<!-- The app's first page: shown until it knows where its server is, and again
+     whenever that is forgotten (the offline page's "Change"). Once an address
+     is saved the shell loads the served UI instead and this is never seen.
+
+     Unlike error.html this need not be inlined: with no server.url set,
+     Capacitor serves the whole bundle, sibling files included. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ratchet</title>
+<link rel="stylesheet" href="offline.css">
+</head>
+<body>
+<header>
+  <h1>Ratchet</h1>
+  <span class="tag">setup</span>
+</header>
+<main class="plain">
+  <div class="setup">
+    <p>Where is your Ratchet server?</p>
+    <p class="hint">The PC's name in Tailscale — its Tailscale menu shows it.
+    The short name, like <code>my-pc</code>, is usually enough; the full
+    <code>my-pc.tail1234.ts.net</code> and the 100.x address work too. Leave
+    the port off unless you changed it.</p>
+    <div class="row">
+      <input id="addr" type="text" inputmode="url" autocapitalize="none"
+             autocorrect="off" spellcheck="false" placeholder="my-pc">
+      <button id="btnConnect">Connect</button>
+    </div>
+    <p id="status" class="hint" role="status"></p>
+    <button id="btnAnyway" hidden>Use it anyway</button>
+  </div>
+</main>
+<script type="module" src="setup.js"></script>
+</body>
+</html>

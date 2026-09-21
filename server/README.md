@@ -171,30 +171,36 @@ calibre itself in `shell:startup` — or run `calibre-server` as its own task).
 ## The Android shell
 
 `shell/` wraps the served UI in a native Android app (Capacitor). The WebView
-loads `<your tailnet address>:8484/ui/` — the same files the browser gets —
-so UI changes ship by editing the server, never by rebuilding the APK. The
-shell exists to hold native permissions (filesystem, opening files in other
-apps); it rebuilds only when the native plugin list changes.
+loads `<your server>:8484/ui/` — the same files the browser gets — so UI
+changes ship by editing the server, never by rebuilding the APK. The shell
+exists to hold native permissions (filesystem, opening files in other apps);
+it rebuilds only when the native side or a bundled page changes.
 
-That address is yours rather than the project's, so it is not committed:
+**The app asks where the server is the first time it opens**, and remembers.
+Nothing about any one machine is built into it, so one APK serves anybody
+and using Ratchet does not mean building it: only changing the shell does.
+Type the machine's name in Tailscale (its tray menu shows it) — the short
+name is usually enough, Tailscale on the device completing the rest, and is
+steadier than the tailnet IP; the port is assumed to be 8484 unless given.
+Whatever is typed first is worth keeping to: what the UI remembers on a
+device (the token included) is kept per address, so the short name and the
+full one count as two different servers.
+To change it later, the offline page — what the app shows when the server
+does not answer, a wrong address included — names the address and has a
+*Change* button.
+
+Two pages are bundled: `www/index.html` (that first question) and
+`www/error.html` (the offline library). The second is generated, because
+Capacitor will only serve it as one self-contained file, and is tracked so
+that a fresh clone builds without running the generator. After editing
+`error.template.html`, `www/offline.js` or `www/offline.css`:
 
 ```powershell
-cd shell
-Copy-Item capacitor.config.example.json capacitor.config.json
-# Edit server.url to your own machine's MagicDNS name (`tailscale status`),
-# which is steadier than the tailnet IP. Keep the /ui/ on the end.
+node build-error-page.mjs      # the tests fail if this is forgotten
 ```
 
-`www/error.html` — the offline page — is generated from that same file, so
-the app and its fallback can never disagree about where the server is.
-Regenerate it after editing either the config or the offline page's sources:
-
-```powershell
-node build-error-page.mjs      # before every `npx cap copy android`
-```
-
-Build (JDK 21 and the Android SDK live under `C:\Users\Cassandra\android-dev`,
-installed without Android Studio):
+Build (needs JDK 21 and the Android SDK; here they live under
+`C:\Users\Cassandra\android-dev`, installed without Android Studio):
 
 ```powershell
 cd shell
