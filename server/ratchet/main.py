@@ -366,6 +366,29 @@ def health() -> dict:
     return out
 
 
+@app.get("/ping")
+def ping() -> JSONResponse:
+    """Whether this is Ratchet answering, for the pages bundled into the app.
+
+    "Did anything answer?" stopped being the right question once Tailscale
+    could be what carries the traffic (`tailscale serve`): with Ratchet
+    stopped and the PC on, Tailscale answers 502 by itself, and a page asking
+    only whether something answered would take that for the server coming
+    back. It is also what lets the app's setup page tell a Ratchet from
+    whatever else lives at an address someone mistyped — calibre, say.
+
+    Readable from any origin, which a bundled page needs: it is served from
+    http://localhost inside the app, and without the header the browser
+    would let it send the request but not see the reply. That is why this is
+    not /health, which names the libraries: here there is nothing to read
+    but the fact of being Ratchet. No token for the same reason as there —
+    the pages that ask have none to send yet.
+    """
+    return JSONResponse({"ratchet": True},
+                        headers={"Access-Control-Allow-Origin": "*",
+                                 "Cache-Control": "no-store"})
+
+
 @app.get("/libraries", dependencies=AUTH)
 def libraries() -> dict:
     """Every library on the content server, plus which one Ratchet defaults to."""

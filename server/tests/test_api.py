@@ -175,6 +175,24 @@ def test_login_success_sound_is_only_for_a_deliberate_sign_in():
     assert "if (announce) play(\"success\")" in app
 
 
+def test_ping_says_this_is_ratchet_to_a_page_from_any_origin():
+    """The app's bundled pages ask it, from http://localhost inside the app:
+    without the header the browser lets them ask and hides the answer. And
+    "did anything answer" is no use once Tailscale carries the traffic — it
+    answers 502 by itself when Ratchet is stopped."""
+    r = client.get("/ping")                      # no token: they have none yet
+    assert r.status_code == 200
+    assert r.json() == {"ratchet": True}
+    assert r.headers["access-control-allow-origin"] == "*"
+
+
+def test_ping_tells_a_stranger_nothing_but_that():
+    """/health names the libraries, which is why it is not what got the
+    any-origin header."""
+    assert set(client.get("/ping").json()) == {"ratchet"}
+    assert "access-control-allow-origin" not in client.get("/health").headers
+
+
 def test_sort_options_are_published_and_default_to_last_updated():
     body = client.get("/ui-config", headers=TOK).json()
     keys = [o["key"] for o in body["sort_options"]]
