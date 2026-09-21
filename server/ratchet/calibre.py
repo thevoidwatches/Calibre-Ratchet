@@ -164,11 +164,27 @@ class CalibreClient:
         that reports it — which takes its library as a query parameter
         rather than a path suffix, unlike the /ajax routes.
         """
+        got = self._interface_data(library_id).get("categories_using_hierarchy")
+        return [str(x) for x in got] if isinstance(got, list) else []
+
+    def custom_columns(self, library_id: str | None = None) -> list[dict]:
+        """[{lookup, name, datatype, is_multiple}] for the columns this
+        library's owner added, in the order calibre lists them — what a
+        setting that names a column can be chosen from, instead of typed."""
+        fields = self._interface_data(library_id).get("field_metadata") or {}
+        return [{"lookup": lookup, "name": str(meta.get("name") or lookup),
+                 "datatype": str(meta.get("datatype") or ""),
+                 "is_multiple": bool(meta.get("is_multiple"))}
+                for lookup, meta in fields.items()
+                if lookup.startswith("#") and isinstance(meta, dict)]
+
+    def _interface_data(self, library_id: str | None = None) -> dict:
+        """calibre's description of one library, as its own web UI asks for
+        it. The library goes in the query string here, not on the path."""
         lib = self.lib if library_id is None else library_id.strip()
         params = {"library_id": lib} if lib else {}
-        got = self._request("GET", "/interface-data/init",
-                            params=params).json().get("categories_using_hierarchy")
-        return [str(x) for x in got] if isinstance(got, list) else []
+        got = self._request("GET", "/interface-data/init", params=params).json()
+        return got if isinstance(got, dict) else {}
 
     def ajax(self, path: str, params: dict | None = None) -> Any:
         """GET an /ajax/... path handed back inside another ajax response (e.g. the per-category item URLs inside /ajax/categories)."""

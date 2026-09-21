@@ -6,6 +6,7 @@ Python 3.11+ (uses stdlib tomllib).
 from __future__ import annotations
 
 import ipaddress
+import json
 import os
 import shutil
 import socket
@@ -19,9 +20,71 @@ from pathlib import Path
 _TAILSCALE_NET = ipaddress.ip_network("100.64.0.0/10")
 
 
+def tailscale_exe() -> str | None:
+    """The tailscale command, or None when Tailscale is not installed.
+
+    PATH first, then where the Windows installer puts it: a scheduled task or
+    a freshly opened console does not always have the PATH the installer
+    updated, and "not on PATH" would otherwise read as "not installed".
+    """
+    exe = shutil.which("tailscale")
+    if exe:
+        return exe
+    if sys.platform == "win32":
+        default = (Path(os.environ.get("ProgramFiles", r"C:\Program Files"))
+                   / "Tailscale" / "tailscale.exe")
+        if default.is_file():
+            return str(default)
+    return None
+
+
+def tailscale_self() -> dict:
+    """What Tailscale says about this machine.
+
+        installed   the command exists
+        running     connected to a tailnet, rather than stopped or logged out
+        state       Tailscale's own word for it ("Running", "NeedsLogin", ...)
+        ip          the tailnet IPv4 address
+        name        the MagicDNS name, "my-pc.tail1234.ts.net"
+        short_name  its first label, "my-pc" — what another device on the
+                    tailnet can usually type instead, Tailscale completing it
+
+    Every value is present whatever went wrong, empty where unknown, so a
+    caller can show what there is without first asking what failed.
+    """
+    info = {"installed": False, "running": False, "state": "",
+            "ip": "", "name": "", "short_name": ""}
+    exe = tailscale_exe()
+    if not exe:
+        return info
+    info["installed"] = True
+    try:
+        out = subprocess.run([exe, "status", "--json"], capture_output=True,
+                             text=True, encoding="utf-8", timeout=10).stdout
+        status = json.loads(out)
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return info
+    me = status.get("Self") or {}
+    info["state"] = str(status.get("BackendState") or "")
+    info["running"] = info["state"] == "Running"
+    for addr in me.get("TailscaleIPs") or []:
+        try:
+            if ipaddress.ip_address(addr) in _TAILSCALE_NET:
+                info["ip"] = addr
+                break
+        except ValueError:
+            continue
+    # MagicDNS can be switched off for a tailnet, and then the name resolves
+    # nowhere — better to offer none than one that does not work.
+    if (status.get("CurrentTailnet") or {}).get("MagicDNSEnabled", True):
+        info["name"] = str(me.get("DNSName") or "").rstrip(".")
+        info["short_name"] = info["name"].split(".")[0]
+    return info
+
+
 def tailscale_ip() -> str | None:
     """This machine's Tailscale IPv4 address, or None if it isn't on a tailnet."""
-    exe = shutil.which("tailscale")
+    exe = tailscale_exe()
     if exe:
         try:
             out = subprocess.run([exe, "ip", "-4"], capture_output=True, text=True,
