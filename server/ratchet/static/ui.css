@@ -76,7 +76,12 @@ input, select { font: inherit; border: 2px solid var(--fg); border-radius: 6px;
 .row { display: flex; gap: 8px; margin: 8px 0; flex-wrap: wrap; align-items: center; }
 .row input[type=text], .row input[type=search] { flex: 1; min-width: 120px; }
 
+/* Never wider than what holds it, and free to wrap inside: a chip is one
+   value, and a value can be "Nonfiction.Informational.Science.Physics.
+   Astrophysics". Its label breaks after a hierarchy's dots (format.js
+   breakable()), at spaces, and anywhere as the last resort. */
 .chip { display: inline-flex; align-items: center; gap: 6px;
+        max-width: calc(100% - 6px); overflow-wrap: anywhere;
         border: 2px solid var(--fg); border-radius: 16px; padding: 6px 12px;
         margin: 3px; font-size: 0.95rem; background: var(--bg); }
 .chip.on { background: var(--fg); color: var(--bg); }
@@ -93,7 +98,12 @@ input, select { font: inherit; border: 2px solid var(--fg); border-radius: 6px;
 .gofilter { background: none; border: none; color: inherit; font: inherit;
             padding: 2px 0; min-height: 0; cursor: pointer;
             text-decoration: underline; text-decoration-style: dotted;
-            text-underline-offset: 3px; }
+            text-underline-offset: 3px;
+            /* A button shrink-wraps its label and would sooner overflow than
+               break it. These are text, wherever they sit — in a chip, or
+               as the series under a book's title — so they wrap like text. */
+            min-width: 0; max-width: 100%; overflow-wrap: anywhere;
+            text-align: left; }
 
 .list { list-style: none; padding: 0; margin: 8px 0; }
 .list li { border: 1px solid var(--fg); border-radius: 6px; padding: 10px;
@@ -230,23 +240,26 @@ button.small.icon { min-width: 40px; padding: 6px 8px; }
 .sortrow select { min-height: 38px; padding: 4px 6px; flex: 1; min-width: 120px; }
 .sortrow label { flex: 0 0 auto; }
 
-/* Title on the left of its row, series name/number on the right. The title
-   shrinks and wraps rather than pushing the series off the edge. */
+/* Title on the left of its row, series name/number on the right. Both may
+   shrink and both may wrap, sharing the line in proportion to how much each
+   has to say. The series used to be fixed at its full width, on the theory
+   that a series name is short by nature — and then a long one took the line
+   for itself and left the title a column a few letters wide to wrap in. */
 .list li .titlerow { display: flex; justify-content: space-between; gap: 10px;
                      align-items: baseline; }
-.list li .titlerow .t { min-width: 0; overflow-wrap: anywhere; }
+.list li .titlerow .t { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 /* The series, and calibre.row_field standing in for a book that has none:
-   one look for one place, whichever of the two is filling it. */
+   one look and one behaviour for one place, whichever of the two fills it.
+   Wraps at spaces, and after the dots of a hierarchy (format.js breakable()
+   supplies those); "anywhere" is the last resort, and what lets a flex item
+   shrink below its longest word at all. Never more than half the line, so
+   the title — which is what a row is for — always keeps at least half. */
 .list li .titlerow .ser,
-.list li .titlerow .rowfield { flex: 0 0 auto; font-style: italic;
+.list li .titlerow .rowfield { flex: 0 1 auto; min-width: 0; max-width: 50%;
+                               overflow-wrap: anywhere; font-style: italic;
                                font-size: 0.85rem; text-align: right; }
 .list li .titlerow .ser:empty,
 .list li .titlerow .rowfield:empty { display: none; }
-/* A chosen column can hold several values and run long, unlike a series name,
-   so this one gives way to the title and trails off instead of pushing it out
-   of the row. */
-.list li .titlerow .rowfield { flex: 0 1 auto; overflow: hidden;
-                               text-overflow: ellipsis; white-space: nowrap; }
 
 /* Author on the left of its row, page count on the right — the same
    two-sided arrangement as the title/series row above it. */

@@ -88,11 +88,15 @@ def test_it_looks_the_same_as_the_series_it_stands_in_for():
     # collapses when empty so the row gains no gap.
     assert ".list li .titlerow .rowfield:empty { display: none; }" in css
     browse = client.get("/ui/browse.js").text
-    assert 'querySelector(".rowfield").textContent = rowFieldLabel(b)' in browse
+    assert 'querySelector(".rowfield").textContent = breakable(rowFieldLabel(b))' in browse
 
 
 def test_a_long_value_gives_way_to_the_title():
-    """A series name is short; a multi-valued column need not be."""
+    """A multi-valued column can run long. It used to trail off in an
+    ellipsis; it now wraps like the series it stands in for, and like the
+    series may never take more than half the line from the title."""
     css = client.get("/ui/ui.css").text
-    own = css.split(".list li .titlerow .rowfield { flex: 0 1 auto;")[1].split("}")[0]
-    assert "text-overflow: ellipsis" in own
+    shared = css.split(".list li .titlerow .ser,")[1].split("}")[0]
+    assert "flex: 0 1 auto" in shared and "max-width: 50%" in shared
+    assert "overflow-wrap: anywhere" in shared
+    assert "ellipsis" not in shared and "nowrap" not in shared

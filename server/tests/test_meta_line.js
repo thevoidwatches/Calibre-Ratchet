@@ -1,7 +1,8 @@
 // Where a book row's genre and tag line is allowed to wrap.
 // Exercised from tests/test_meta_line.py via node.
 import "./dom_stub.mjs";
-const { metaLine, segments } = await import("../ratchet/static/format.js");
+const { metaLine, segments, breakable, seriesLabel } =
+  await import("../ratchet/static/format.js");
 
 const ZWSP = "​";
 const out = {};
@@ -28,6 +29,16 @@ out.separator = show(metaLine(["A.B", "C.D"]));
 const visible = s => s.split(ZWSP).join("");
 out.reads_the_same = visible(metaLine(["Fantasy.High", "Romance"]))
   === ["Fantasy.High", "Romance"].join(" · ");
+
+// One value, as shown wherever it may have to wrap: a series on a book's
+// row, a chip on a book's page. Same breaks as the line above, same rule.
+out.series_dotted = show(breakable(seriesLabel(
+  {series: "Cosmere.Mistborn.Era One", series_index: 2})));
+out.series_doctor = show(breakable(seriesLabel({series: "Dr. Greta Helsing"})));
+out.series_plain = show(breakable("A Practical Guide to Sorcery"));
+out.breakable_nothing = [breakable(null), breakable(undefined), breakable("")];
+out.breakable_same_text = visible(breakable("Powers.Specific.Shipgirl")) ===
+  "Powers.Specific.Shipgirl";
 
 // Splitting a hierarchy: the separator is a dot with the next level right
 // behind it, so a dot followed by a space belongs to the name.

@@ -73,6 +73,44 @@ def test_the_book_list_uses_it_for_both_sides_of_the_row():
     assert 'querySelector(".tags").textContent = metaLine(b.tags)' in browse
 
 
+def test_a_series_may_break_after_each_level_too(m):
+    """The series could not break at all on a book's row: it was one word,
+    in a span that was not allowed to shrink."""
+    assert m["series_dotted"] == "Cosmere.<>Mistborn.<>Era One #2"
+
+
+def test_a_series_with_an_abbreviation_in_it_gains_no_false_break(m):
+    assert m["series_doctor"] == "Dr. Greta Helsing"
+    assert m["series_plain"] == "A Practical Guide to Sorcery"   # spaces suffice
+
+
+def test_breakable_is_for_showing_and_changes_nothing_a_reader_sees(m):
+    assert m["breakable_same_text"] is True
+    assert m["breakable_nothing"] == ["", "", ""]
+
+
+def test_the_row_shows_the_series_and_its_stand_in_breakable():
+    browse = client.get("/ui/browse.js").text
+    assert 'querySelector(".ser").textContent = breakable(seriesLabel(b))' in browse
+    assert 'querySelector(".rowfield").textContent = breakable(rowFieldLabel(b))' in browse
+
+
+def test_a_books_page_shows_every_value_breakable_and_saves_none_of_them():
+    """Chips, the suggestions under them, and the series and authors in the
+    heading. The break is an invisible character, so what matters as much is
+    that it is only ever put into text being SHOWN: every value that gets
+    saved or filtered by comes from a variable, never back out of the page."""
+    detail = client.get("/ui/detail.js").text
+    assert "b.textContent = breakable(label === undefined ? value : label);" in detail
+    assert "b.textContent = breakable(label);" in detail
+    assert 'c.textContent = v === "" ? "(none)" : breakable(v);' in detail
+    # Nothing reads a label back: no ".textContent" on the right of anything.
+    reads = [l for l in detail.splitlines()
+             if ".textContent" in l and ".textContent =" not in l
+             and not l.strip().startswith(("//", "*", "/*"))]
+    assert reads == [], reads
+
+
 def test_a_dot_inside_a_name_is_not_a_level(m):
     """The reported case: "Dr. Greta Helsing" is one series, and was being
     shown as a "Dr" family with "Greta Helsing" beneath it."""

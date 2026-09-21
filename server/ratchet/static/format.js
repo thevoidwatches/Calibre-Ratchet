@@ -148,19 +148,28 @@ export function segments(value) {
 // A zero-width space: invisible, and a place the line may break.
 const SEGMENT_BREAK = "​";
 
-/** Several values as the one line a book's row shows them on, with somewhere
- *  sensible to break.
+/** Text as it should be SHOWN wherever it may have to wrap: the same
+ *  characters, with a place to break after each dot that divides a hierarchy.
  *
  *  A hierarchical value is a single unbreakable word to a browser —
  *  "Nonfiction.Informational.Science.Physics.Astrophysics" has no space in
- *  fifty-three characters — so a row that has to wrap one splits it wherever
- *  the line happened to run out, mid-word. Offering a break after each dot
- *  puts those splits between the segments instead, where the meaning already
- *  divides. A dot that is followed by a space is left alone: the space is a
- *  break opportunity of its own, and "Mr. Norrell" is not a hierarchy. */
-export function metaLine(values) {
-  return (values || []).join(" · ")
+ *  fifty-three characters — so anything that has to wrap one splits it
+ *  wherever the line happened to run out, mid-word. Offering a break after
+ *  each dot puts those splits between the segments instead, where the meaning
+ *  already divides. A dot that is followed by a space is left alone: the space
+ *  is a break opportunity of its own, and "Mr. Norrell" is not a hierarchy.
+ *
+ *  For display only. The break is an invisible character, so the result must
+ *  never be saved, searched for, or compared — callers keep the real value
+ *  in a variable and show this. */
+export function breakable(text) {
+  return String(text == null ? "" : text)
     .replace(EVERY_HIERARCHY_DOT, "." + SEGMENT_BREAK);
+}
+
+/** Several values as the one line a book's row shows them on. */
+export function metaLine(values) {
+  return breakable((values || []).join(" · "));
 }
 
 /** The configured column (calibre.row_field) as it appears at the right of a

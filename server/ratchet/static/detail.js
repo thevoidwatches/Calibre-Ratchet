@@ -2,7 +2,7 @@
 "use strict";
 import { $, state, api, apiJson, err, clearErr, show, isWritable,
          FILTER_BY_EVENT } from "./core.js";
-import { groupSuggestions, seriesLabel, suggestValues } from "./format.js";
+import { breakable, groupSuggestions, seriesLabel, suggestValues } from "./format.js";
 import { fieldIsHierarchical, loadCats, loadCatItems } from "./picker.js";
 import { play } from "./sfx.js";
 import { refreshActions, setUpdateAvailable } from "./actions.js";
@@ -90,7 +90,9 @@ function filterLink(field, value, label) {
   const b = document.createElement("button");
   b.type = "button";
   b.className = "gofilter";
-  b.textContent = label === undefined ? value : label;
+  // Shown breakable; `value` itself is what the click filters by, so the
+  // invisible break never reaches a search.
+  b.textContent = breakable(label === undefined ? value : label);
   b.title = "show everything with " + field.replace(/^#/, "") + ": " + value;
   b.onclick = () => window.dispatchEvent(new CustomEvent(FILTER_BY_EVENT, {
     detail: {field, value, hierarchical: fieldIsHierarchical(field)},
@@ -382,7 +384,7 @@ function renderMultiEditor(fs, col) {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "chip suggestion";
-    b.textContent = label;
+    b.textContent = breakable(label);
     b.title = value;             // the full path, when the label is trimmed
     // Keep the press from moving focus out of the filter box, which would
     // hide this list before the click landed on it.
@@ -439,7 +441,7 @@ function renderSingleEditor(fs, col) {
   const addChip = v => {
     const c = document.createElement("span");
     c.className = "chip" + (v === cur ? " on" : "");
-    c.textContent = v === "" ? "(none)" : v;
+    c.textContent = v === "" ? "(none)" : breakable(v);
     c.onclick = () => {
       if (v !== cur)
         saveField(col.field, v === "" ? null : v)

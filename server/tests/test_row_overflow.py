@@ -23,6 +23,15 @@ def rule_for(selector: str) -> str:
     return " ".join(found)
 
 
+def rule_exactly(selector: str) -> str:
+    """The declarations of the rule(s) naming exactly `selector` — not, as
+    rule_for() would for ".chip", every rule that merely mentions it."""
+    found = [b.group(2) for b in re.finditer(r"([^{}]+)\{([^}]*)\}", css())
+             if selector in [part.strip() for part in
+                             re.sub(r"/\*.*?\*/", "", b.group(1), flags=re.S).split(",")]]
+    return " ".join(found)
+
+
 def test_the_long_side_of_every_row_may_break_a_word():
     """The title and author sides already could; genres and tags could not,
     which is what let a long tag run off the edge."""
@@ -41,12 +50,40 @@ def test_it_is_anywhere_rather_than_break_word():
     assert "overflow-wrap: break-word" not in css()
 
 
-def test_the_fixed_side_of_a_row_cannot_outgrow_it():
-    """The right-hand spans do not shrink, so anything that could be long
-    has to clip instead. The page count and the series are short by nature;
-    a chosen column is not."""
-    assert "text-overflow: ellipsis" in rule_for(".list li .titlerow .rowfield")
-    assert "overflow: hidden" in rule_for(".list li .titlerow .rowfield")
+def test_the_series_gives_way_instead_of_taking_the_line():
+    """It used to be fixed at its full width, on the theory that a series name
+    is short by nature — and then a long one took the line and left the title
+    a column a few letters wide. Both it and the column that stands in for it
+    now shrink and wrap, and neither may take more than half."""
+    for selector in (".list li .titlerow .ser", ".list li .titlerow .rowfield"):
+        decl = rule_for(selector)
+        assert "flex: 0 1 auto" in decl, selector          # may shrink
+        assert "flex: 0 0 auto" not in decl, selector      # ...and is not pinned
+        assert "min-width: 0" in decl, selector
+        assert "overflow-wrap: anywhere" in decl, selector
+        assert "max-width: 50%" in decl, selector
+        # Wrapped, not clipped: the point is to be able to read it.
+        assert "nowrap" not in decl and "ellipsis" not in decl, selector
+
+
+def test_the_series_and_its_stand_in_behave_alike():
+    """One place in the row, filled by one or the other; a reader should not
+    be able to tell which from how it wraps."""
+    assert rule_for(".list li .titlerow .ser") == rule_for(".list li .titlerow .rowfield")
+
+
+def test_a_chip_wraps_inside_itself_rather_than_running_off_the_page():
+    """A chip is one value, and one value can be fifty-three characters with
+    no space in it."""
+    chip = rule_exactly(".chip")
+    assert "max-width: calc(100% - 6px)" in chip
+    assert "overflow-wrap: anywhere" in chip
+    # The label is a button, which shrink-wraps its text and would sooner
+    # overflow than break it — so the link style itself says it may wrap,
+    # and that covers the series and authors under a book's title as well.
+    link = rule_exactly(".gofilter")
+    for needed in ("min-width: 0", "max-width: 100%", "overflow-wrap: anywhere"):
+        assert needed in link, needed
 
 
 def test_neither_side_of_the_meta_row_can_be_squeezed_past_half_the_other():
