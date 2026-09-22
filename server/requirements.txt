@@ -9,5 +9,8 @@ FanFicFare>=4.60.0
 # Tray icon for the no-console Windows launcher (pythonw -m ratchet --tray).
 # Optional: the console launcher works without it.
 pystray>=0.19
+# QR codes in the setup wizard, so an address is scanned rather than typed
+# into a phone. Pure Python, no dependencies of its own.
+segno>=1.6
 # dev:
 pytest>=8

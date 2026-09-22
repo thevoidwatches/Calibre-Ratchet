@@ -27,6 +27,30 @@ The service's own settings — where calibre is, the auth token, which columns
 it shows — stay in `server/config.toml`, because they are about running the
 service rather than about the library's vocabulary.
 
+## Checking them
+
+All three are written by hand, and nearly every slip in them is silent: a
+rule naming a column that does not exist is skipped, a root typed
+`Progatonist` quietly becomes a second branch beside `Protagonist`, a value
+meant as a tag lands in `#genre` because the column named before it carries
+on. Nothing errors; the library just ends up subtly wrong. So:
+
+```
+cd server
+python -m ratchet.configcheck
+```
+
+reads all three, compares them with the tags and columns your libraries
+really have, and reports each finding with its line. It changes nothing.
+`Setup.bat`'s last step shows the same findings in the browser, with buttons
+to open each file or start one from its example.
+
+| | |
+|---|---|
+| **error** | it will not do what it says — the line, rule or file is ignored |
+| **warning** | it will do something, probably not what was meant: a likely misspelling of a name you use elsewhere, a value going to the wrong column, a tag ruled on twice, a rule relying on another rule's result (rules do not chain) |
+| **note** | worth knowing; nothing is wrong |
+
 ## tag_rules.txt
 
 One line per tag, written by `stray_tags.py --review` and edited by you:

@@ -17,7 +17,35 @@ Linux equivalents are kept at the bottom in case it ever moves.
   running server, never to the library folder directly.
 - FanFicFare comes in via requirements.txt — no separate install.
 
-## Setup (Windows / PowerShell)
+## Setup, the short way (Windows)
+
+Double-click **`Setup.bat`** in the folder above this one. It installs the
+Python packages into a folder of their own (`server\.venv`; nothing goes in
+system-wide), then opens a setup wizard in your browser, which:
+
+1. checks Tailscale is installed and connected
+2. connects to calibre, and offers your libraries and custom columns to
+   choose from rather than type
+3. writes `config.toml` and `.env` — generating the API token — or, if they
+   exist, changes only the lines for what you changed and leaves the rest of
+   the file, comments included, exactly as it was (the old one is kept
+   beside it as `.bak`)
+4. lets your tailnet reach Ratchet (see *Reaching it from your phone*)
+5. starts Ratchet, now and at login
+6. fetches the Android app and shows a QR code to download it with, the
+   address to give it, and the token
+7. optionally, reads the hand-written files in `../config/` and says what
+   looks wrong in them (see `../config/README.md`) — it changes nothing
+
+**It never asks for administrator rights**, and that is on purpose — see the
+next-but-one section. The wizard is a page served to this PC only: it answers
+no other machine, wants a key made fresh each run that only the tab it opens
+is given, and refuses requests addressed to any name but this machine's. Run
+`Setup.bat` again whenever you want to change something.
+
+Everything it does can be done by hand, which is the rest of this file.
+
+## Setup, by hand (Windows / PowerShell)
 
 ```powershell
 cd server
@@ -105,40 +133,58 @@ no separate deployment.
 
 ## Reaching it from your phone
 
-`[service] host = "tailscale"` (the configured value) resolves this machine's
-tailnet address at startup instead of pinning a literal IP — tailnet addresses
-can change, and a stale literal would leave the service unable to bind at all.
-The startup line prints the address it chose. `host` also accepts a literal IP,
-`"127.0.0.1"` for local-only, or `"0.0.0.0"` for every interface (LAN
-included — not recommended).
+Each device needs the Tailscale app installed and signed in to the same
+tailnet. Two ways to let it in; the first is the default.
 
-**One-time firewall rule.** Windows blocks inbound connections by default, so
-the phone and ereader are refused until a rule exists. Run this **once** in an
+**Through Tailscale — no firewall rule, no administrator rights.** Ratchet
+listens on this machine only (`[service] host = "127.0.0.1"`), where nothing
+outside can reach it, and Tailscale hands it the tailnet's traffic on its
+port:
+
+```powershell
+tailscale serve --bg --tcp=8484 tcp://127.0.0.1:8484
+tailscale serve status              # what is being forwarded
+tailscale serve --tcp=8484 off      # undo it
+```
+
+`--bg` makes it part of Tailscale's own configuration, so it survives a
+restart. The setup wizard does exactly this. It is the default because the
+other way needs an administrator to open the firewall, and "run this as
+administrator to open your firewall" is what a careful person refuses from a
+tool they downloaded an hour ago — rightly. It also means a misconfigured
+Ratchet can never end up listening to your home network.
+
+**Directly — faster, but needs a firewall rule.** Measured on one machine,
+going through Tailscale costs about 10 ms a request (3 ms direct, 12 ms
+forwarded): Tailscale carries the bytes through its own process rather than
+the system's network code. Large downloads are unaffected; moving between
+pages is a touch less crisp. If that matters to you, set
+`host = "tailscale"` — this machine's tailnet address, looked up at startup
+rather than pinned, since it can change — turn the forwarding above off (the
+two would fight over the port, and Tailscale would win with nothing behind
+it), and allow the port through Windows Firewall, **once**, in an
 **Administrator** PowerShell. It allows only TCP 8484, only from tailnet
-addresses (100.64.0.0/10), so it does not open the port to your LAN even
-though the Ethernet adapter is also on the Private profile:
+addresses (100.64.0.0/10), so it does not open the port to your LAN:
 
 ```powershell
 New-NetFirewallRule -DisplayName "Ratchet (tailnet only)" `
   -Direction Inbound -Action Allow -Protocol TCP -LocalPort 8484 `
-  -Profile Private -RemoteAddress 100.64.0.0/10
+  -Profile Any -RemoteAddress 100.64.0.0/10
+
+netsh advfirewall firewall show rule name="Ratchet (tailnet only)"   # check
+Remove-NetFirewallRule -DisplayName "Ratchet (tailnet only)"          # remove
 ```
 
-To check or remove it later:
+`-Profile Any` because which profile Windows files the Tailscale adapter
+under varies between machines, and a rule on the wrong one fails silently;
+the address restriction is what keeps it narrow. (`netsh` to check it rather
+than `Get-NetFirewallRule`, which answers "Access is denied" unless elevated
+— easily mistaken for the rule being absent.) The wizard recognises a setup
+like this and leaves it alone.
 
-```powershell
-Get-NetFirewallRule -DisplayName "Ratchet (tailnet only)"
-Remove-NetFirewallRule -DisplayName "Ratchet (tailnet only)"
-```
-
-Each device needs the Tailscale app installed and connected, signed into the
-same tailnet. Then open `http://<tailnet-ip>:8484/ui/`, paste the token once,
-and use Chrome's *Add to Home screen*.
-
-**Alternative — `tailscale serve`:** keep `host = "127.0.0.1"` and run
-`tailscale serve --bg --https=443 localhost:8484`. This needs no firewall rule
-(Tailscale connects locally) and gives HTTPS on a stable MagicDNS name, but
-requires HTTPS certificates enabled for your tailnet in the admin console.
+Either way, in the browser it is `http://<machine name>:8484/ui/`; paste the
+token once, and use Chrome's *Add to Home screen*. The Android app asks for
+the address itself — see *The Android shell*.
 
 Never expose this to the open internet; the bearer token is the only lock.
 
@@ -225,6 +271,7 @@ via `npx @capacitor/assets generate --android` (sources derive from
 | Method | Path | What |
 |---|---|---|
 | GET | `/health` | service + calibre reachability, library list |
+| GET | `/ping` | `{"ratchet": true}` and nothing else, readable from any origin — how the app's bundled pages tell Ratchet from whatever else might answer at an address |
 | GET | `/libraries` | every library on the content server |
 | GET | `/books?q=&num=&offset=` | search (full calibre search syntax) |
 | GET | `/books/{id}` | calibre metadata + sidecar snapshot + recent events |

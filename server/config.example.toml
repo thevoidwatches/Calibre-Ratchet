@@ -1,8 +1,17 @@
 [service]
-host = "tailscale"        # "tailscale" = this machine's tailnet address, looked up
-                          # at startup (an IP can change; a literal would go stale).
-                          # Also accepts a literal IP, "127.0.0.1" for local-only,
-                          # or "0.0.0.0" for every interface including the LAN.
+# Where Ratchet listens, which decides how your phone reaches it:
+#   "127.0.0.1"  this machine only, with Tailscale handing it the tailnet's
+#                traffic (`tailscale serve`; Setup.bat turns that on). Nothing
+#                needs the firewall opened, so nothing needs administrator
+#                rights. The default, and what the setup wizard writes.
+#   "tailscale"  this machine's tailnet address itself, looked up at startup
+#                (an IP can change; a literal would go stale). About 10 ms a
+#                request quicker, because Tailscale is not in the middle —
+#                but Windows Firewall then has to be told to allow it, by an
+#                administrator. The README has the one command.
+# Also accepts a literal IP, or "0.0.0.0" for every interface, LAN included
+# (not recommended).
+host = "127.0.0.1"
 port = 8484
 auth_token = ""            # set in .env: RATCHET_AUTH_TOKEN=<long random string>
 # data_dir: where the sidecar DB and pre-update backups live. Default if omitted:

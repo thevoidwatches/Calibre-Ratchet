@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ratchet setup</title>
+<link rel="stylesheet" href="wizard.css">
+</head>
+<body>
+<header>
+  <h1>Ratchet</h1>
+  <span class="tag">setup</span>
+</header>
+
+<main>
+  <p id="problem" class="box" hidden></p>
+  <p class="lede">Five steps, top to bottom. Nothing here asks for
+  administrator rights, and everything it does it tells you first. You can
+  close this and come back: it picks up from whatever is already set.</p>
+
+  <section id="stepTailscale" class="step">
+    <h2><span class="mark"></span>1. Tailscale</h2>
+    <p class="why">Tailscale is the private network your phone reaches this
+    PC over. Ratchet is never put on the open internet.</p>
+    <p class="status"></p>
+  </section>
+
+  <section id="stepCalibre" class="step">
+    <h2><span class="mark"></span>2. calibre</h2>
+    <p class="why">Ratchet talks to calibre's Content server, which has to be
+    running: in calibre, <i>Preferences → Sharing over the net → Start
+    server</i>, and tick <i>Run server automatically when calibre starts</i>.
+    If you gave it user accounts, enter one here.</p>
+    <label>Address <input id="calUrl" type="text" spellcheck="false"></label>
+    <div class="pair">
+      <label>Username <input id="calUser" type="text" spellcheck="false"
+             autocomplete="off"></label>
+      <label>Password <input id="calPass" type="password"
+             autocomplete="new-password"></label>
+    </div>
+    <div class="row">
+      <button id="btnTest">Test the connection</button>
+      <span class="status"></span>
+    </div>
+
+    <div id="libraryBlock" hidden>
+      <label>Library to open on
+        <select id="calLibrary"></select></label>
+      <p class="hint">Each device remembers the library it last used; this is
+      only where a new one starts.</p>
+
+      <details id="columnsBlock">
+        <summary>Columns (optional)</summary>
+        <p class="hint">Ratchet can show and file books by custom columns you
+        have made in calibre. Leave any of these empty if you have no such
+        column — nothing depends on them.</p>
+        <label>Genre, shown beside the tags
+          <select id="colGenre"></select></label>
+        <label>Fandom
+          <select id="colFandom"></select></label>
+        <label>Main characters
+          <select id="colMajchar"></select></label>
+        <label>Shown at the right of a book's title, when it has no series
+          <select id="colRow"></select></label>
+        <label>Where "last updated" is recorded
+          <select id="colLastupdate"></select></label>
+        <p class="hint">This is for sorting by when a story last got new
+        chapters. Ratchet has to write that date down somewhere each time it
+        fetches an update, and there are two places it can:</p>
+        <ul class="hint">
+          <li><b>A Date column of your own.</b> Make one in calibre
+          (<i>Preferences → Add your own columns</i>, type <i>Date</i>) and
+          pick it here. Nothing else about your library changes.</li>
+          <li><b>calibre's built-in Date column.</b> No new column needed —
+          but that column is where calibre records the day you <i>added</i>
+          each book. Each time a story updates, Ratchet would replace that
+          with the day of the update. calibre keeps no copy of the old
+          date, so there is no getting it back.</li>
+        </ul>
+        <p class="hint">Left at <i>(none)</i>, nothing is written, and the
+        "Last Updated" sort simply goes by the day each book was added.</p>
+      </details>
+
+      <div class="row">
+        <button id="btnSave" class="primary">Save these settings</button>
+        <span class="status" id="saveStatus"></span>
+      </div>
+    </div>
+  </section>
+
+  <section id="stepReach" class="step needs-config">
+    <h2><span class="mark"></span>3. Let your devices in</h2>
+    <p class="why">Ratchet listens on this PC only, where nothing outside can
+    reach it. Tailscale is asked to hand it your tailnet's traffic on one
+    port — a setting inside Tailscale, undone with one click here. Windows
+    Firewall is not touched, which is why no administrator prompt appears.</p>
+    <div class="row">
+      <button id="btnReach">Turn it on</button>
+      <span class="status"></span>
+    </div>
+  </section>
+
+  <section id="stepRun" class="step needs-config">
+    <h2><span class="mark"></span>4. Run Ratchet</h2>
+    <p class="why">Ratchet sits in the notification area, by the clock.
+    Starting it when you log in means it is simply there.</p>
+    <div class="row">
+      <button id="btnStart">Start Ratchet now</button>
+      <span class="status" id="runStatus"></span>
+    </div>
+    <div class="row" id="autostartRow">
+      <button id="btnAutostart">Start it when I log in</button>
+      <span class="status" id="autostartStatus"></span>
+    </div>
+  </section>
+
+  <section id="stepPhone" class="step needs-config">
+    <h2><span class="mark"></span>5. Your phone or ereader</h2>
+    <p class="why">Install Tailscale on the device and sign in to the same
+    account first. Then:</p>
+    <div class="row">
+      <button id="btnApk">Get the app ready</button>
+      <span class="status" id="apkStatus"></span>
+    </div>
+    <div id="pairing" hidden>
+      <div class="qrs">
+        <figure>
+          <div class="qr" id="qrApk"></div>
+          <figcaption><b>① Scan to download the app</b><br>
+          <span id="apkUrl" class="mono"></span><br>
+          Android will ask you to allow installing it; that prompt is
+          Android's, for any app from outside the Play Store.</figcaption>
+        </figure>
+        <figure>
+          <div class="qr" id="qrToken"></div>
+          <figcaption><b>③ Scan to copy your token</b><br>
+          Most camera apps offer to copy what a code says. Paste it when
+          Ratchet asks.</figcaption>
+        </figure>
+      </div>
+      <p><b>② Open the app and tell it where the server is:</b>
+        <span id="address" class="mono big"></span>
+        <span id="addressFull" class="hint"></span></p>
+      <details>
+        <summary>No camera? Type these instead</summary>
+        <p class="hint">On the device, open this in its browser to download
+        the app: <span id="apkUrlTyped" class="mono"></span></p>
+        <p class="hint">Token: <span id="token" class="mono"></span>
+          <button id="btnCopyToken" class="small">Copy</button></p>
+      </details>
+    </div>
+  </section>
+
+  <section id="stepLibrary" class="step needs-config">
+    <h2><span class="mark"></span>6. Your tags (optional)</h2>
+    <p class="why">Stories arrive wearing whatever tags their site gave them.
+    Three text files in the <span class="mono">config</span> folder say how
+    those become <i>your</i> tags. Ratchet works without any of them — a
+    story simply keeps the tags it came with. They are edited by hand, and
+    a slip in one fails silently, so this reads them and says what looks
+    wrong. It changes nothing.</p>
+    <ul id="libraryFiles" class="files"></ul>
+    <div class="row">
+      <button id="btnCheck">Check them</button>
+      <span class="status" id="checkStatus"></span>
+    </div>
+    <div id="findings"></div>
+  </section>
+
+  <p class="hint foot">Done? Close this tab, then the black window it came
+  from. Run <span class="mono">Setup.bat</span> again whenever you want to
+  change something.</p>
+</main>
+<script type="module" src="wizard.js"></script>
+</body>
+</html>

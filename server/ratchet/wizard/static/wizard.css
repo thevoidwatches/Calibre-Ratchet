@@ -1,0 +1,114 @@
+/* The same two-tone look as Ratchet itself, so the wizard reads as part of
+   it. Follows the system's light or dark setting: there is no toggle here
+   because there is nowhere yet to remember one. */
+:root {
+  --bg: #fff;
+  --fg: #000;
+  --muted: #444;
+  --faint: #888;
+  --shade: #eee;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #000;
+    --fg: #fff;
+    --muted: #bbb;
+    --faint: #777;
+    --shade: #181818;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+html { font-family: system-ui, sans-serif; font-size: 17px; }
+body { margin: 0; background: var(--bg); color: var(--fg); }
+
+header { display: flex; align-items: baseline; gap: 10px; padding: 8px 16px;
+         border-bottom: 2px solid var(--fg); }
+header h1 { font-size: 1.2rem; margin: 0; }
+header .tag { font-style: italic; color: var(--muted); }
+
+main { max-width: 760px; margin: 0 auto; padding: 8px 16px 60px; }
+.lede { color: var(--muted); }
+.foot { margin-top: 28px; }
+
+.step { border: 2px solid var(--fg); border-radius: 8px; padding: 4px 16px 14px;
+        margin: 16px 0; }
+.step h2 { font-size: 1.1rem; margin: 12px 0 6px; }
+.why { color: var(--muted); margin: 6px 0 12px; }
+.hint { color: var(--muted); font-size: 0.9rem; }
+ul.hint { padding-left: 1.3em; margin: 6px 0; }
+ul.hint li { margin: 6px 0; }
+ul.hint b { color: var(--fg); }
+
+/* Until there is a config to act on, the later steps have nothing to do. */
+.step.waiting { border-color: var(--faint); color: var(--faint); }
+.step.waiting .why, .step.waiting .hint { color: var(--faint); }
+
+/* Done / needs you / not yet — a shape as well as a colour, since the
+   palette has only two. */
+.mark { display: inline-block; width: 1.3em; font-weight: bold; }
+.step.done .mark::before { content: "✓"; }
+.step.todo .mark::before { content: "○"; }
+.step.stuck .mark::before { content: "!"; }
+
+label { display: block; margin: 10px 0 4px; }
+input, select { display: block; width: 100%; margin-top: 4px; font: inherit;
+                color: var(--fg); background: var(--bg);
+                border: 2px solid var(--fg); border-radius: 6px;
+                padding: 8px; min-height: 44px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+button { font: inherit; color: var(--fg); background: var(--bg);
+         border: 2px solid var(--fg); border-radius: 6px;
+         padding: 8px 14px; min-height: 44px; cursor: pointer; }
+button.primary { background: var(--fg); color: var(--bg); }
+button.small { min-height: 0; padding: 2px 8px; font-size: 0.85rem; }
+button:disabled { color: var(--faint); border-color: var(--faint);
+                  background: var(--bg); cursor: default; }
+
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+       margin: 12px 0 4px; }
+.status { color: var(--muted); }
+.status.bad { color: var(--fg); font-weight: bold; }
+
+details { margin: 14px 0 4px; }
+summary { cursor: pointer; font-weight: bold; min-height: 32px; }
+
+.box { border: 2px solid var(--fg); background: var(--shade); border-radius: 6px;
+       padding: 10px 14px; font-weight: bold; }
+
+/* The files in config/, and what the check found in them. */
+.files { list-style: none; padding: 0; margin: 8px 0; }
+.files li { margin: 10px 0; }
+.files .row { margin: 0; }
+.files .hint { margin: 2px 0 0; }
+.file h3 { font-size: 1rem; margin: 18px 0 6px; }
+.findings { list-style: none; padding: 0; margin: 0; }
+.findings li { display: grid; grid-template-columns: 1.4em 5.2em 1fr; gap: 4px;
+               padding: 5px 0; border-top: 1px solid var(--faint); }
+/* A shape for each kind, since two tones cannot carry three meanings. */
+.findings li::before { font-weight: bold; }
+.findings li.error::before { content: "✗"; }
+.findings li.warning::before { content: "!"; }
+.findings li.note::before { content: "·"; color: var(--muted); }
+.findings li.note { color: var(--muted); }
+.findings .where { font-family: ui-monospace, Consolas, monospace;
+                   font-size: 0.85rem; color: var(--muted); padding-top: 2px; }
+
+.mono { font-family: ui-monospace, Consolas, monospace; overflow-wrap: anywhere; }
+.big { font-size: 1.3rem; font-weight: bold; margin: 0 6px; }
+
+.qrs { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 14px 0; }
+figure { margin: 0; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 6px; }
+figcaption b { color: var(--fg); }
+/* White whatever the theme: a phone's camera looks for dark on light. */
+.qr { background: #fff; padding: 6px; border-radius: 6px; width: fit-content;
+      border: 2px solid var(--fg); }
+.qr img { display: block; width: 190px; height: 190px; }
+
+@media (max-width: 560px) {
+  .pair, .qrs { grid-template-columns: 1fr; }
+}

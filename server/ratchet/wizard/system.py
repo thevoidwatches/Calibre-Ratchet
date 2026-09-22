@@ -203,6 +203,28 @@ def apk_download(data_dir: Path, url: str = APK_URL) -> dict:
     return {"ok": True, "message": "downloaded", **apk_status(data_dir)}
 
 
+# ---- opening a file for the user ---------------------------------------
+
+def open_in_editor(path: Path) -> dict:
+    """Open a text file in an editor on this machine.
+
+    Notepad by name on Windows rather than "whatever opens this type":
+    .toml has no program associated with it on most machines, and asking
+    Windows to open one gets a "how do you want to open this?" dialog, or
+    nothing at all.
+    """
+    try:
+        if WINDOWS:
+            subprocess.Popen(["notepad.exe", str(path)])
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", "-t", str(path)])
+        else:
+            subprocess.Popen(["xdg-open", str(path)])
+    except OSError as e:
+        return {"ok": False, "message": f"could not open it: {e}"}
+    return {"ok": True, "message": ""}
+
+
 # ---- the service -------------------------------------------------------
 
 def service_running(host: str, port: int) -> bool:
