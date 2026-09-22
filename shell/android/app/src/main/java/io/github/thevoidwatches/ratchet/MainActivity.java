@@ -66,6 +66,15 @@ public class MainActivity extends BridgeActivity {
             // prompt(), inheriting the rest (file chooser, permissions).
             getBridge().getWebView().setWebChromeClient(
                     new RatchetChromeClient(getBridge()));
+            // Likewise, and it inherits Capacitor's handling of a load that
+            // fails; what it adds is a limit on one that merely never
+            // answers. The first load has already been sent by the time this
+            // runs, so it is timed from here — the client cannot have seen
+            // it start.
+            RatchetWebViewClient client =
+                    new RatchetWebViewClient(getBridge(), new ConnectingSign(this));
+            getBridge().setWebViewClient(client);
+            if (server != null) client.arm(getBridge().getWebView(), server);
         }
         handOverBackButton();
     }

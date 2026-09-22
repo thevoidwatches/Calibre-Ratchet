@@ -48,17 +48,35 @@ export function normaliseServer(text) {
 
 function $(id) { return document.getElementById(id); }
 
-/** Reachable at all is the question, so an opaque no-cors probe is enough —
- *  it resolves only when something answered at that address. */
-async function answers(origin) {
+async function fetchWithin(ms, url, options) {
   const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort(), 6000);
-  try {
-    await fetch(origin + "/health", {mode: "no-cors", signal: ctl.signal,
-                                     cache: "no-store"});
-    return true;
-  } catch (e) { return false; }
+  const timer = setTimeout(() => ctl.abort(), ms);
+  try { return await fetch(url, {...options, signal: ctl.signal, cache: "no-store"}); }
   finally { clearTimeout(timer); }
+}
+
+/** What is at this address: "ratchet", "other", or "nothing".
+ *
+ *  Asks /ping, which only Ratchet answers with {ratchet: true}. "Did
+ *  anything answer" is not enough: with Tailscale carrying the traffic
+ *  (`tailscale serve`) it answers by itself whenever the PC is on, Ratchet
+ *  running or not — and a mistyped port can land on calibre, which answers
+ *  too. Telling "other" from "nothing" is for the message: one means check
+ *  the address, the other means check that anything is switched on.
+ *
+ *  (offline.js has its own copy of the /ping half. It has to: that file is
+ *  inlined whole into error.html and cannot import.) */
+async function whatIsAt(origin) {
+  try {
+    const r = await fetchWithin(6000, origin + "/ping", {});
+    if (r.ok && (await r.json()).ratchet === true) return "ratchet";
+    return "other";
+  } catch (e) { /* refused, timed out, not JSON, or unreadable */ }
+  try {
+    // Opaque, so it resolves only if something answered at all.
+    await fetchWithin(4000, origin + "/", {mode: "no-cors"});
+    return "other";
+  } catch (e) { return "nothing"; }
 }
 
 function say(text) { $("status").textContent = text; }
@@ -76,15 +94,19 @@ async function connect() {
 
   say("Looking for " + got.origin + " …");
   $("btnConnect").disabled = true;
-  const up = await answers(got.origin);
+  const found = await whatIsAt(got.origin);
   $("btnConnect").disabled = false;
-  if (up) { use(got.origin); return; }
+  if (found === "ratchet") { use(got.origin); return; }
 
-  // Not fatal: the address may be right and the PC merely off. Saving it
-  // anyway lands on the offline page, which retries by itself.
-  say("Nothing answered at " + got.origin + ". Check that Tailscale is " +
-      "connected on this device and that Ratchet is running on the PC — " +
-      "or check the address for typos.");
+  // Not fatal either way: the address may be right and Ratchet merely
+  // stopped. Saving it anyway lands on the offline page, which retries.
+  say(found === "other"
+    ? "Something answered at " + got.origin + ", but it is not Ratchet. " +
+      "Check the name and the port — or, if they are right, that Ratchet " +
+      "is running on the PC."
+    : "Nothing answered at " + got.origin + ". Check that Tailscale is " +
+      "connected on this device and that the PC is on — or check the " +
+      "address for typos.");
   $("btnAnyway").hidden = false;
   $("btnAnyway").onclick = () => use(got.origin);
 }

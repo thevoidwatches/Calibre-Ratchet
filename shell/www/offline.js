@@ -170,17 +170,26 @@ async function openBook(b) {
   }
 }
 
-/** Reachable at all is the question, so an opaque no-cors probe is enough —
- *  it resolves only when something answered at that address. */
+/** Whether Ratchet itself is answering — not merely something at its address.
+ *
+ *  With Tailscale carrying the traffic (`tailscale serve`), Tailscale answers
+ *  502 by itself whenever the PC is on and Ratchet is not. A probe that only
+ *  asked whether anything answered would take that for the server coming
+ *  back, reload into the 502, land here again, and do it every twenty
+ *  seconds — throwing away whatever was being browsed each time. /ping is
+ *  answered {ratchet: true} by Ratchet alone.
+ *
+ *  (setup.js has the same check. This file is inlined whole into error.html
+ *  and cannot import, so the few lines exist twice.) */
 async function serverUp() {
   const origin = server();
   if (!origin) return false;
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 4000);
   try {
-    await fetch(origin + "/health", {mode: "no-cors", signal: ctl.signal,
-                                     cache: "no-store"});
-    return true;
+    const r = await fetch(origin + "/ping", {signal: ctl.signal,
+                                             cache: "no-store"});
+    return r.ok && (await r.json()).ratchet === true;
   } catch (e) { return false; }
   finally { clearTimeout(timer); }
 }
