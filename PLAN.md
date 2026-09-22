@@ -379,13 +379,13 @@ What the tests can't cover from here: anything that needs *your* live calibre,
 - **Politeness is a floor, not a guarantee.** The throttle spaces requests;
   the real protection is the usage pattern: user-triggered, one story at a
   time. Keep it that way.
-- **A failed FanFicFare run is reported as whatever it last warned about.**
-  `add_error` and friends carry the tail of FFF's stderr, so a harmless
-  warning printed before the failure becomes the stated cause — an add killed
-  part-way was once reported as a PIL "Palette images with Transparency"
-  warning, with no mention that the process had died. The exit code and
-  signal should lead, with the stderr tail kept as context beneath it.
-  *(Seen 2026-09-09; not yet fixed.)*
+- ~~**A failed FanFicFare run is reported as whatever it last warned about.**~~
+  Fixed 2026-09-21: `sites.explain_failure` leads with what ended the process
+  (the exit code, in words where a number would not say — Windows reports a
+  kill as `0xffffffff`), then the lines that look like an error, and failing
+  those the last warning, called one. The add that was killed part-way and
+  recorded as a PIL palette warning now reads "stopped from outside; it
+  reported no error, only a warning".
 - **FanFicFare has no read timeout.** `connect_timeout` covers making the
   connection, not waiting for a reply, so a story image on a host that
   accepts and then goes quiet stalls the whole fetch. Only

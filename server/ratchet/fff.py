@@ -44,7 +44,7 @@ import subprocess
 from dataclasses import dataclass
 
 from .config import Config
-from .sites import download_options, run_fff  # same binary/config/options/encoding as the metadata fetch
+from .sites import download_options, explain_failure, run_fff  # same binary/config/options/encoding as the metadata fetch
 
 
 class FFFError(Exception):
@@ -77,7 +77,7 @@ def update_epub(epub_path: str, cfg: Config) -> FFFResult:
     tail = out.strip()[-1500:]
 
     if proc.returncode != 0:
-        raise FFFError(f"fanficfare -u exited {proc.returncode}: {tail}")
+        raise FFFError(explain_failure(proc, "fanficfare -u"))
 
     # Signature lines from cli.py (4.60.0). We don't *depend* on these for
     # safety — the post-verify in main.py does that — they just make results

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -119,6 +120,68 @@ def run_fff(args: list[str], cfg: Config) -> subprocess.CompletedProcess:
     )
 
 
+# What a process exit code means, where the number alone would not say.
+# Windows reports a killed process by whatever the killer passed as its exit
+# code: PowerShell's Stop-Process and .NET's Kill() pass -1, seen unsigned;
+# Ctrl+C and a closed console leave NTSTATUS's CONTROL_C_EXIT; a crash leaves
+# ACCESS_VIOLATION. Task Manager's End Task passes 1, which is also what an
+# unhandled Python exception exits with, so 1 is left to the output to tell.
+_EXIT_MEANS = {
+    0xFFFFFFFF: "was stopped from outside",
+    0xC000013A: "was interrupted (Ctrl+C, or its console closed)",
+    0xC0000005: "crashed (access violation)",
+}
+# A Python warning is "path:line: SomeWarning: message", then the line of
+# source that raised it — "  warnings.warn(" — which says nothing on its own
+# and is dropped rather than mistaken for a warning of its own.
+_WARNING_LINE = re.compile(r"\b\w*Warning\b")
+_WARNING_SOURCE = re.compile(r"^\s*warnings\.warn\b")
+_ERROR_LINE = re.compile(r"Traceback|\b[A-Z]\w*Error\b|\bERROR\b|\bException\b|"
+                         r"\b[Ff]ailed\b|\brefused\b|\bdenied\b|\bnot found\b")
+_EXPLAIN_MAX = 800
+
+
+def explain_failure(proc: subprocess.CompletedProcess,
+                    what: str = "fanficfare") -> str:
+    """Why a FanFicFare run failed, leading with what ended it.
+
+    Not the tail of its output: that is whatever it last happened to print,
+    and a process that is killed prints nothing on the way out, so the tail
+    is then whatever came before — an add killed part-way through was once
+    recorded as having failed because of a PIL warning about a palette image,
+    with no mention that the process had died. The exit code says what ended
+    it. Then the lines that look like an error, if any; and if there are
+    none, the last warning, said to be one, so that nobody reads it as the
+    cause.
+    """
+    code = proc.returncode
+    if code == 0:
+        lead = f"{what} exited normally"
+    elif code < 0:
+        lead = f"{what} was killed by signal {-code}"
+    elif code in _EXIT_MEANS:
+        lead = f"{what} {_EXIT_MEANS[code]} (exit code {code:#x})"
+    else:
+        lead = f"{what} exited with code {code}"
+
+    lines = [line.rstrip() for line in
+             ((proc.stdout or "") + "\n" + (proc.stderr or "")).splitlines()
+             if line.strip() and not _WARNING_SOURCE.match(line)]
+    warnings = [line for line in lines if _WARNING_LINE.search(line)]
+    errors = [line for line in lines
+              if _ERROR_LINE.search(line) and line not in warnings]
+    if errors:
+        said = "\n".join(errors)[-_EXPLAIN_MAX:]
+        return f"{lead}: {said}"
+    if warnings:
+        return (f"{lead}; it reported no error, only "
+                f"{'a warning' if len(warnings) == 1 else f'{len(warnings)} warnings'}"
+                f", the last: {warnings[-1][-_EXPLAIN_MAX:]}")
+    if lines:
+        return f"{lead}; its last output: {lines[-1][-_EXPLAIN_MAX:]}"
+    return f"{lead} and printed nothing"
+
+
 def fetch_remote(story_url: str, cfg: Config) -> RemoteStory:
     site = site_of(story_url)
     _politeness_wait(site, cfg.politeness.min_seconds_between_site_requests)
@@ -137,8 +200,8 @@ def fetch_remote(story_url: str, cfg: Config) -> RemoteStory:
     out = proc.stdout
     brace = out.find("{")
     if brace < 0:
-        tail = (proc.stderr or out or "").strip()[-800:]
-        raise SiteFetchError(f"no JSON from fanficfare (exit {proc.returncode}): {tail}")
+        raise SiteFetchError("no JSON from the metadata fetch — "
+                             + explain_failure(proc))
     try:
         meta = json.loads(out[brace:])
     except json.JSONDecodeError as e:

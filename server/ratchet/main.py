@@ -33,7 +33,7 @@ from .db import Sidecar
 from .fff import FFFError, update_epub
 from .safety import decide, verify_post_update
 from .sites import (RemoteStory, SiteFetchError, download_options,
-                    fetch_remote, normalize_story_url, run_fff)
+                    explain_failure, fetch_remote, normalize_story_url, run_fff)
 
 log = logging.getLogger("ratchet")
 
@@ -483,9 +483,11 @@ def add_book(url: str = Body(embed=True), library: str | None = LIB_Q) -> dict:
         except Exception as e:  # timeout, missing binary, --force guard
             raise HTTPException(502, f"download failed: {e}")
         if proc.returncode != 0 or not Path(fresh_path).is_file():
-            tail = ((proc.stdout or "") + (proc.stderr or "")).strip()[-800:]
-            sidecar.log_event(lib, None, "add_error", {"url": norm, "error": tail})
-            raise HTTPException(502, f"download failed: {tail}")
+            why = explain_failure(proc)
+            if proc.returncode == 0:
+                why += " but wrote no epub"
+            sidecar.log_event(lib, None, "add_error", {"url": norm, "error": why})
+            raise HTTPException(502, f"download failed: {why}")
 
         post = epub_mod.extract_chapters(fresh_path)
         problems = verify_post_update(remote.chapters, post)
@@ -729,11 +731,13 @@ def convert(book_id: int, library: str | None = LIB_Q) -> dict:
                 raise HTTPException(502, f"fresh download failed (calibre copy "
                                          f"untouched, backup at {backup_path}): {e}")
             if proc.returncode != 0 or not Path(fresh_path).is_file():
-                tail = ((proc.stdout or "") + (proc.stderr or "")).strip()[-800:]
+                why = explain_failure(proc)
+                if proc.returncode == 0:
+                    why += " but wrote no epub"
                 sidecar.log_event(lib, book_id, "convert_error",
-                                  {"url": url, "error": tail})
+                                  {"url": url, "error": why})
                 raise HTTPException(502, f"fresh download failed (calibre copy "
-                                         f"untouched, backup at {backup_path}): {tail}")
+                                         f"untouched, backup at {backup_path}): {why}")
 
             post = epub_mod.extract_chapters(fresh_path)
             problems = verify_post_update(remote.chapters, post)
