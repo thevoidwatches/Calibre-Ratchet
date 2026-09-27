@@ -247,11 +247,7 @@ def report_vocab(args) -> int:
     cfg = load_config(args.config)
     calibre = CalibreClient(cfg.calibre.base_url, "", cfg.calibre.username,
                             cfg.calibre.password)
-    ids = calibre.search(query="", num=100000,
-                         library_id=args.library)["book_ids"]
-    metas: dict = {}
-    for i in range(0, len(ids), 200):
-        metas.update(calibre.books(ids[i:i + 200], library_id=args.library))
+    metas, wanted = _tagtool.read_library(calibre, args)
 
     learn(metas)
 
@@ -260,7 +256,7 @@ def report_vocab(args) -> int:
     unattributed: list[tuple[str, str, str]] = []
     guessed: collections.Counter = collections.Counter()
     for book_id, meta in metas.items():
-        if not meta:
+        if not meta or book_id not in wanted:
             continue
         sure, _ = characters_for(meta)
         all_found, skipped = characters_for(meta, LEARNED)
@@ -314,4 +310,4 @@ if __name__ == "__main__":
     if parsed.vocab:
         raise SystemExit(report_vocab(parsed))
     raise SystemExit(_tagtool.run(parsed, transform, "majchar-rollback", FIELD,
-                                  prepare=learn))
+                                  prepare=lambda metas, wanted: learn(metas)))

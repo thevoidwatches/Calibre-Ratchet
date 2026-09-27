@@ -19,6 +19,7 @@ from __future__ import annotations
 import posixpath
 import re
 import zipfile
+from collections.abc import Iterator
 from dataclasses import dataclass
 from xml.etree import ElementTree as ET
 
@@ -90,6 +91,19 @@ def _opf(zf: zipfile.ZipFile) -> tuple[str, ET.Element]:
         raise EpubReadError("container.xml has no rootfile entry")
     opf_path = rootfile.get("full-path")
     return opf_path, ET.fromstring(zf.read(opf_path))
+
+
+def spine_paths(zf: zipfile.ZipFile) -> Iterator[str]:
+    """The zip paths of the book's documents, in reading order."""
+    opf_path, opf = _opf(zf)
+    base = posixpath.dirname(opf_path)
+    manifest = {item.get("id"): item.get("href")
+                for item in opf.findall(".//opf:manifest/opf:item", _NS)}
+    for itemref in opf.findall(".//opf:spine/opf:itemref", _NS):
+        href = manifest.get(itemref.get("idref"))
+        if href:
+            # Manifest hrefs are relative to the OPF, which need not be at the root.
+            yield posixpath.normpath(posixpath.join(base, href)) if base else href
 
 
 def read_story_url(epub_path: str) -> str | None:
@@ -164,18 +178,7 @@ def extract_chapters(epub_path: str) -> list[Chapter]:
     """Ordered chapters (spine order), identified by embedded chapterurl."""
     chapters: list[Chapter] = []
     with zipfile.ZipFile(epub_path) as zf:
-        opf_path, opf = _opf(zf)
-        base = posixpath.dirname(opf_path)
-
-        manifest = {}
-        for item in opf.findall(".//opf:manifest/opf:item", _NS):
-            manifest[item.get("id")] = item.get("href")
-
-        for itemref in opf.findall(".//opf:spine/opf:itemref", _NS):
-            href = manifest.get(itemref.get("idref"))
-            if not href:
-                continue
-            path = posixpath.normpath(posixpath.join(base, href)) if base else href
+        for path in spine_paths(zf):
             try:
                 data = _decode(zf.read(path))
             except KeyError:

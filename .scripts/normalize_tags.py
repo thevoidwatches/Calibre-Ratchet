@@ -49,10 +49,16 @@ NAME_FIXES = configfiles.require("name_fixes")
 
 
 def fix_atom(atom: str) -> str:
-    """One name, possibly an 'X!Y' identity compound."""
+    """One name, possibly an 'X!Y' identity compound.
+
+    Rebuilt only when one of its names was actually fixed. A '!' is also just
+    punctuation in a freeform tag — "good for him! good for him" — and
+    splitting that and joining it back up would respace it for nothing.
+    """
     if "!" in atom:
-        return "!".join(NAME_FIXES.get(p.strip(), p.strip())
-                        for p in atom.split("!"))
+        names = [p.strip() for p in atom.split("!")]
+        fixed = [NAME_FIXES.get(n, n) for n in names]
+        return "!".join(fixed) if fixed != names else atom
     return NAME_FIXES.get(atom, atom)
 
 

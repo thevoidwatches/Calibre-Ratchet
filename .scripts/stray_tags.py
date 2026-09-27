@@ -77,7 +77,7 @@ def stray_tags(metas: dict) -> dict[str, list[int]]:
 _rules = tagmap.Rules()
 
 
-def prepare(metas: dict) -> None:
+def prepare(metas: dict, wanted: set[str]) -> None:
     global _rules
     _rules = tagmap.load(RULES)
     for number, text in _rules.bad_lines[:10]:
@@ -97,11 +97,7 @@ def write_review(args) -> int:
     cfg = load_config(args.config)
     calibre = CalibreClient(cfg.calibre.base_url, "", cfg.calibre.username,
                             cfg.calibre.password)
-    ids = calibre.search(query="", num=100000,
-                         library_id=args.library)["book_ids"]
-    metas: dict = {}
-    for i in range(0, len(ids), 200):
-        metas.update(calibre.books(ids[i:i + 200], library_id=args.library))
+    metas, _ = _tagtool.read_library(calibre, args)
 
     rules = tagmap.load(RULES)
     decided = rules.exact
@@ -189,6 +185,10 @@ if __name__ == "__main__":
             "every tag in the library would count as stray. List the top-level "
             "names your own scheme uses and run this again.")
     if parsed.review:
+        _tagtool.whole_library_only(
+            parsed, "--review",
+            f"it rewrites {RULES.name} from the tags it finds, so an undecided "
+            "tag on a book outside the range would lose its line")
         raise SystemExit(write_review(parsed))
     raise SystemExit(_tagtool.run_multi(parsed, transform, "stray-rollback",
                                         prepare=prepare))

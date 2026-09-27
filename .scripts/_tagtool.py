@@ -9,12 +9,19 @@ that rewrites metadata.
 run() is the single-column case, which most of the scripts use. run_multi()
 is for the ones that move a value from one column into another, where both
 ends have to change together or not at all.
+
+--since and --until limit a run to the books added in that range. They limit
+what a run reports on and writes, never what it reads: some scripts decide
+one book by looking at the rest of the library — which fandom a name belongs
+to, how the library spells it — and must decide it the same way whichever
+books a run is limited to.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -40,6 +47,19 @@ def backup_path(name: str) -> Path:
     return given if given.exists() else BACKUPS / given.name
 
 
+_DATE = re.compile(r"\d{4}(-\d{2}(-\d{2})?)?")
+
+
+def _date(text: str) -> str:
+    """A date as calibre's search takes one. Checked here, because calibre
+    reads a malformed one as a search for something else rather than
+    refusing it."""
+    if not _DATE.fullmatch(text):
+        raise argparse.ArgumentTypeError(
+            f"{text!r} is not a date — write 2026-09-01, 2026-09 or 2026")
+    return text
+
+
 def parser(description: str) -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description=description)
     ap.add_argument("--config", default="config.toml")
@@ -47,7 +67,53 @@ def parser(description: str) -> argparse.ArgumentParser:
     ap.add_argument("--apply", action="store_true",
                     help="without this, only report what would change")
     ap.add_argument("--rollback", help="undo a previous run from its json")
+    ap.add_argument("--since", type=_date,
+                    help="only books added on or after this date; 2026-09 "
+                         "means from the start of that month")
+    ap.add_argument("--until", type=_date,
+                    help="only books added on or before this date; 2026-09 "
+                         "means to the end of that month")
     return ap
+
+
+def date_query(args) -> str:
+    """The calibre search for the books a run is limited to; '' for all.
+
+    calibre's own date search, so a range means what calibre's Date column
+    shows, in the library's own time zone rather than UTC — a book added late
+    in the evening belongs to that evening's date.
+    """
+    parts = []
+    if getattr(args, "since", None):
+        parts.append(f"date:>={args.since}")
+    if getattr(args, "until", None):
+        parts.append(f"date:<={args.until}")
+    return " and ".join(parts)
+
+
+def whole_library_only(args, mode: str, why: str) -> None:
+    """Refuse a date range for a mode that has to cover every book."""
+    if date_query(args):
+        raise SystemExit(f"{mode} covers the whole library: {why}. "
+                         "Run it without --since/--until.")
+
+
+def read_library(calibre, args) -> tuple[dict, set[str]]:
+    """(every book's metadata, the ids of the books this run is limited to).
+
+    Ids are strings, as calibre keys the metadata by them.
+    """
+    ids = calibre.search(query="", num=100000, library_id=args.library)["book_ids"]
+    metas: dict = {}
+    for i in range(0, len(ids), 200):
+        metas.update(calibre.books(ids[i:i + 200], library_id=args.library))
+    query = date_query(args)
+    if not query:
+        return metas, set(metas)
+    wanted = {str(i) for i in calibre.search(
+        query=query, num=100000, library_id=args.library)["book_ids"]}
+    print(f"limited to {len(wanted)} of {len(metas)} book(s): {query}\n")
+    return metas, wanted
 
 
 def current(meta: dict, field: str) -> list[str]:
@@ -69,14 +135,22 @@ def dedupe(tags: list[str]) -> list[str]:
     return out
 
 
+def _shown(value: list[str] | dict) -> list[str]:
+    """A column's value as the lines a report lists it by."""
+    if isinstance(value, dict):
+        return [f"{k}:{v}" for k, v in value.items()]
+    return value
+
+
 def run(args, transform, rollback_stem: str, field: str = "tags",
         prepare=None) -> int:
     """Sweep the library, report, and (with --apply) write and record undo.
 
     `transform(value, meta) -> list[str]` is called once per book with that
-    book's current value for `field`. `prepare(metas)`, when given, is called
-    once with every book's metadata first, for rules that need to look at the
-    library as a whole before deciding anything about one book.
+    book's current value for `field`. `prepare(metas, wanted)`, when given,
+    is called once first with every book's metadata and the ids of the books
+    that will be transformed, for rules that need to look at the library as
+    a whole before deciding anything about one book.
     """
     def one_field(meta):
         return {field: transform(current(meta, field), meta)}
@@ -88,7 +162,8 @@ def run_multi(args, transform, rollback_stem: str, prepare=None) -> int:
     """As run(), but `transform(meta) -> {field: value}` may name several
     columns. Only the columns it returns are compared and written, so a
     script that usually touches one and occasionally touches three does not
-    have to declare that up front."""
+    have to declare that up front. A value is a list, or for identifiers a
+    mapping."""
     cfg = load_config(args.config)
     calibre = CalibreClient(cfg.calibre.base_url, "", cfg.calibre.username,
                             cfg.calibre.password)
@@ -104,23 +179,24 @@ def run_multi(args, transform, rollback_stem: str, prepare=None) -> int:
         print(f"\n{len(undo)} book(s) restored.")
         return 0
 
-    ids = calibre.search(query="", num=100000, library_id=args.library)["book_ids"]
-    metas: dict = {}
-    for i in range(0, len(ids), 200):
-        metas.update(calibre.books(ids[i:i + 200], library_id=args.library))
+    metas, wanted = read_library(calibre, args)
 
     if prepare is not None:
-        prepare(metas)
+        prepare(metas, wanted)
 
     changes: dict[str, tuple[dict, dict]] = {}
     for book_id, meta in metas.items():
-        if not meta:
+        if not meta or book_id not in wanted:
             continue
         proposed = transform(meta) or {}
         old, new = {}, {}
         for name, value in proposed.items():
-            was = current(meta, name)
-            now = dedupe(value)
+            if isinstance(value, dict):
+                # A mapping (identifiers) is compared and written whole:
+                # calibre replaces the lot, so the undo has to hold the lot.
+                was, now = dict(meta.get(name) or {}), dict(value)
+            else:
+                was, now = current(meta, name), dedupe(value)
             if now != was:
                 old[name], new[name] = was, now
         if new:
@@ -132,11 +208,12 @@ def run_multi(args, transform, rollback_stem: str, prepare=None) -> int:
         print(f"{book_id:>5}  {(metas[book_id].get('title') or '')[:44]}")
         for name in sorted(new):
             label = "" if name == "tags" else f"{name} "
-            for t in old[name]:
-                if t not in new[name]:
+            was, now = _shown(old[name]), _shown(new[name])
+            for t in was:
+                if t not in now:
                     print(f"       - {label}{t}")
-            for t in new[name]:
-                if t not in old[name]:
+            for t in now:
+                if t not in was:
                     print(f"       + {label}{t}")
 
     if args.apply and changes:

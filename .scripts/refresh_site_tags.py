@@ -28,6 +28,7 @@ Usage (from server/, where config.toml lives):
     python ../.scripts/refresh_site_tags.py --library Serials
     python ../.scripts/refresh_site_tags.py --library Serials --apply
     python ../.scripts/refresh_site_tags.py --library Serials --site royalroad
+    python ../.scripts/refresh_site_tags.py --library Serials --since 2026-09
     python ../.scripts/refresh_site_tags.py --rollback sitetags-rollback-<n>.json
 """
 
@@ -86,12 +87,15 @@ def load_cache() -> dict:
     return {}
 
 
-def fetch_all(metas: dict, only_site: str, pause: float) -> None:
-    """Ask each book's site what it is tagged, once, politely."""
+def fetch_all(metas: dict, wanted: set[str], only_site: str,
+              pause: float) -> None:
+    """Ask each book's site what it is tagged, once, politely — only about
+    the books this run may change, since every other answer would be a
+    site hit for nothing."""
     cache = load_cache()
-    wanted = []
+    ask = []
     for book_id, meta in sorted(metas.items(), key=lambda kv: int(kv[0])):
-        if not meta:
+        if not meta or book_id not in wanted:
             continue
         url = story_url(meta)
         if not url or (only_site and only_site not in url):
@@ -99,28 +103,28 @@ def fetch_all(metas: dict, only_site: str, pause: float) -> None:
         if url in cache:
             SITE_TAGS[book_id] = cache[url]
         else:
-            wanted.append((book_id, url))
+            ask.append((book_id, url))
 
     print(f"{len(SITE_TAGS)} book(s) answered from {CACHE.name}, "
-          f"{len(wanted)} to ask the site about")
-    if wanted:
+          f"{len(ask)} to ask the site about")
+    if ask:
         print("fetching metadata only — no chapters are downloaded\n")
-    for n, (book_id, url) in enumerate(wanted, 1):
+    for n, (book_id, url) in enumerate(ask, 1):
         if n > 1:
             time.sleep(pause)
         try:
             proc = sites.run_fff(["-m", "-j", "--no-output", url], CFG)
             data = json.loads(proc.stdout) if proc.returncode == 0 else {}
         except Exception as e:                       # noqa: BLE001
-            print(f"  {n:>4}/{len(wanted)}  FAILED {url} — {e}")
+            print(f"  {n:>4}/{len(ask)}  FAILED {url} — {e}")
             continue
         tags = data.get("subject_tags") or []
         if not tags:
             tail = (proc.stderr or "").strip().splitlines()[-1:] or [""]
-            print(f"  {n:>4}/{len(wanted)}  no tags from {url} — {tail[0][:70]}")
+            print(f"  {n:>4}/{len(ask)}  no tags from {url} — {tail[0][:70]}")
             continue
         SITE_TAGS[book_id] = cache[url] = tags
-        print(f"  {n:>4}/{len(wanted)}  {str(data.get('title'))[:44]:44} "
+        print(f"  {n:>4}/{len(ask)}  {str(data.get('title'))[:44]:44} "
               f"{len(tags)} tags", flush=True)
         CACHE.parent.mkdir(exist_ok=True)
         CACHE.write_text(json.dumps(cache, indent=1, ensure_ascii=False),
@@ -204,6 +208,6 @@ if __name__ == "__main__":
 
     code = _tagtool.run_multi(
         parsed, transform, "sitetags-rollback",
-        prepare=lambda metas: fetch_all(metas, parsed.site, pause))
+        prepare=lambda metas, wanted: fetch_all(metas, wanted, parsed.site, pause))
     report_disagreements()
     raise SystemExit(code)

@@ -35,10 +35,16 @@ would do with it. Edit the right-hand side to correct, add, or drop entries:
     Some Ambiguous Thing           =                    <- blank: skipped
 
 Regenerate it with --review after adding books; entries you have already
-decided are preserved.
+decided are preserved, including those about tags the run did not read.
+
+WHICH BOOKS
+Those whose url identifier is on AO3, and those with none: AO3's own
+download, added straight into calibre, never gets one. For those the epub
+has to say, by a link to AO3 beside the metadata block.
 
 Usage (from server/, where config.toml lives):
     python ../.scripts/ao3_characters.py --review    # write ao3_names.txt
+    python ../.scripts/ao3_characters.py --review --since 2026-09   # new books only
     python ../.scripts/ao3_characters.py             # dry run
     python ../.scripts/ao3_characters.py --apply
     python ../.scripts/ao3_characters.py --rollback ao3-rollback-<n>.json
@@ -48,6 +54,7 @@ from __future__ import annotations
 
 import html
 import io
+import itertools
 import re
 import sys
 import unicodedata
@@ -55,12 +62,13 @@ import zipfile
 from collections import Counter, defaultdict
 from pathlib import Path
 from urllib.parse import urlparse
+from xml.etree import ElementTree as ET
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import _tagtool  # noqa: E402
-from ratchet import configfiles  # noqa: E402
+from ratchet import configfiles, epub  # noqa: E402
 from ratchet.calibre import CalibreClient, CalibreError  # noqa: E402
 from ratchet.config import load_config  # noqa: E402
 
@@ -79,6 +87,10 @@ FFF_ROW = re.compile(r"<b>\s*([^<:]{1,30})\s*:\s*</b>\s*(.{0,4000}?)\s*(?:<br|</
 # AO3's own download: a <dt>/<dd> metadata block.
 AO3_ROW = re.compile(r"<dt[^>]*>(.{0,40}?)</dt>\s*<dd[^>]*>(.{0,4000}?)</dd>",
                      re.I | re.S)
+AO3_MARK = "archiveofourown.org/"
+# How far into a converted AO3 epub its metadata block can sit: the preface
+# is the first document, a cover or title page may come before it.
+PREFACE_DOCS = 4
 
 
 def clean(s: str) -> str:
@@ -95,16 +107,41 @@ def fold(s: str) -> str:
 
 
 def parse_epub(data: bytes) -> dict:
-    """The metadata block from either kind of AO3 epub."""
+    """The metadata block from either kind of AO3 epub.
+
+    AO3's own download keeps it in preface.xhtml — until calibre converts the
+    book, which renames every document after the title ("Cold_War_split_000
+    .xhtml"). Then it is in one of the first few documents, and only a
+    document that also links to AO3 is taken for it, so a chapter that
+    happens to use a definition list is not.
+
+    FanFicFare's title page is taken only when it links to AO3 too: it does
+    for every AO3 story, and a book from another site with no identifier to
+    say so would otherwise have its character list read as AO3's.
+    """
     with zipfile.ZipFile(io.BytesIO(data)) as z:
         names = z.namelist()
         if "OEBPS/title_page.xhtml" in names:
             text = z.read("OEBPS/title_page.xhtml").decode("utf-8", "replace")
+            if AO3_MARK not in text:
+                return {}
             return {clean(k): clean(v) for k, v in FFF_ROW.findall(text)}
         pre = [n for n in names if n.endswith("preface.xhtml")]
         if pre:
             text = z.read(pre[0]).decode("utf-8", "replace")
             return {clean(k).rstrip(":"): clean(v) for k, v in AO3_ROW.findall(text)}
+        try:
+            early = list(itertools.islice(epub.spine_paths(z), PREFACE_DOCS))
+        except (epub.EpubReadError, ET.ParseError):
+            return {}
+        for name in early:
+            try:
+                text = z.read(name).decode("utf-8", "replace")
+            except KeyError:
+                continue
+            rows = AO3_ROW.findall(text)
+            if rows and AO3_MARK in text:
+                return {clean(k).rstrip(":"): clean(v) for k, v in rows}
     return {}
 
 
@@ -261,6 +298,11 @@ def read_review() -> dict[str, str]:
 
 
 def ao3_books(metas: dict) -> list[int]:
+    """The books whose epubs are worth opening: those an identifier says came
+    from AO3, and those with no link identifier at all. AO3's own download,
+    added straight into calibre, never gets one, so for those the epub itself
+    has to say — which parse_epub only lets it do with a link to AO3.
+    """
     out = []
     for meta in metas.values():
         if not meta:
@@ -269,31 +311,44 @@ def ao3_books(metas: dict) -> list[int]:
         url = idn.get("url") or idn.get("uri") or ""
         if url.startswith(("http//", "https//")):
             url = url.replace("//", "://", 1)
-        if "archiveofourown.org" in urlparse(url).netloc.lower():
+        if not url or "archiveofourown.org" in urlparse(url).netloc.lower():
             out.append(int(meta["application_id"]))
     return out
 
 
+def characters_in(calibre, library: str, metas: dict,
+                  wanted: set[str]) -> dict[int, list[str]]:
+    """Book id -> the character tags its epub carries, for the AO3 books
+    among `wanted`.
+
+    Only those epubs are downloaded. The rest of the library still informs
+    every decision through what #majchar already holds, which is where each
+    earlier run left its answers.
+    """
+    found: dict[int, list[str]] = {}
+    for book_id in ao3_books({k: m for k, m in metas.items() if k in wanted}):
+        try:
+            fields = parse_epub(calibre.download_format(book_id, "EPUB", library))
+        except (CalibreError, zipfile.BadZipFile):
+            continue
+        tags = tagged_characters(fields)
+        if tags:
+            found[book_id] = tags
+    return found
+
+
 def collect(args) -> tuple[dict, dict, dict]:
-    """(book id -> character tags, folded library names, book id -> metadata)."""
+    """(book id -> character tags, folded library names, book id -> metadata).
+
+    Character tags from the books in the run's range; the names they are
+    matched against, and the metadata, from the whole library.
+    """
     cfg = load_config(args.config)
     calibre = CalibreClient(cfg.calibre.base_url, "", cfg.calibre.username,
                             cfg.calibre.password)
-    ids = calibre.search(query="", num=100000,
-                         library_id=args.library)["book_ids"]
-    metas: dict = {}
-    for i in range(0, len(ids), 200):
-        metas.update(calibre.books(ids[i:i + 200], library_id=args.library))
-    tags: dict[int, list[str]] = {}
-    for book_id in ao3_books(metas):
-        try:
-            fields = parse_epub(calibre.download_format(book_id, "EPUB", args.library))
-        except (CalibreError, zipfile.BadZipFile):
-            continue
-        found = tagged_characters(fields)
-        if found:
-            tags[book_id] = found
-    return tags, library_names(metas), metas
+    metas, wanted = _tagtool.read_library(calibre, args)
+    return (characters_in(calibre, args.library, metas, wanted),
+            library_names(metas), metas)
 
 
 # calibre writes a hierarchy as "DC Comics.Batman", with no space after the
@@ -454,7 +509,12 @@ def write_review(args) -> int:
             if tag in found:
                 destination[tag] |= {f"choose: {' / '.join(fandom_roots(metas[str(book_id)]))}"}
 
-    width = max([len(t) for t in seen] + [10]) + 1
+    # Every decision already in the file stays in it, whether or not this run
+    # met its tag: a run limited to a date range reads only some books, and a
+    # tag that has left the library may come back with the next import.
+    standing = {tag: value for tag, value in decided.items() if tag not in seen}
+
+    width = max([len(t) for t in seen] + [len(t) for t in standing] + [10]) + 1
     lines = [
         "# AO3 character tags -> the names this library uses.",
         "#",
@@ -514,6 +574,15 @@ def write_review(args) -> int:
             "not in the library yet; the author tagged them, so they come in\n"
             "as-is. Hero names needing an alias will be in here -- e.g. set\n"
             "Chat Noir to Adrien Agreste rather than letting it stand alone.")
+    if standing:
+        lines.append(f"# ==== decided earlier, not on the books read this run "
+                     f"({len(standing)}) " + "=" * 6)
+        lines.append("# kept as written. Delete a line to be asked about that "
+                     "tag afresh.")
+        lines.append("")
+        for tag in sorted(standing):
+            lines.append(f"{tag.ljust(width)}= {standing[tag]}")
+        lines.append("")
 
     REVIEW.write_text("\n".join(lines) + "\n", encoding="utf-8")
     crossover = sum(1 for b in tags
@@ -526,6 +595,7 @@ def write_review(args) -> int:
     print(f"   {len(groups):>4} look like groups, pre-dropped")
     print(f"   {len(fresh):>4} new, kept as-is")
     print(f"   {len(needs_label):>4} need a fandom after the @  <- or they are dropped")
+    print(f"   {len(standing):>4} decided earlier, kept though not on these books")
     print(f"\n{crossover} of the books are filed under more than one fandom. Names the\n"
           f"library already places unambiguously are handled; the rest are the\n"
           f"@ section above.")
@@ -541,7 +611,7 @@ _chars: dict[int, list[str]] = {}
 _fandom_of_name: dict[str, set] = {}
 
 
-def prepare(metas: dict) -> None:
+def prepare(metas: dict, wanted: set[str]) -> None:
     folded = library_names(metas)
     review = read_review()
     _decided.clear()
@@ -549,15 +619,7 @@ def prepare(metas: dict) -> None:
     cfg = load_config(prepare.config)
     calibre = CalibreClient(cfg.calibre.base_url, "", cfg.calibre.username,
                             cfg.calibre.password)
-    for book_id in ao3_books(metas):
-        try:
-            fields = parse_epub(calibre.download_format(book_id, "EPUB",
-                                                        prepare.library))
-        except (CalibreError, zipfile.BadZipFile):
-            continue
-        found = tagged_characters(fields)
-        if found:
-            _chars[book_id] = found
+    _chars.update(characters_in(calibre, prepare.library, metas, wanted))
     for tags in _chars.values():
         for tag in tags:
             if tag in _decided:

@@ -16,12 +16,24 @@ write says so and stops; add `--apply` to let it. The ones that rewrite
 metadata drop a rollback file into `.backups/` naming every previous value,
 and take `--rollback <file>` to put it all back.
 
+The metadata ones also take `--since` and `--until` to limit a run to the
+books added in a range — `--since 2026-09` for everything added from
+September on, `--until 2026-09-30` inclusive — by calibre's own Date column,
+in the library's time zone. A limited run still reads the whole library,
+since some rules decide one book by what the rest say, but reports on and
+writes only the books in the range, and asks a site or downloads an epub
+only for those. `ao3_characters.py --review --since …` lists only the tags
+on those books and keeps every decision already in `ao3_names.txt`.
+`stray_tags.py --review` refuses a range: it regroups `tag_rules.txt` by
+book, and would drop the undecided tags of every book outside it.
+
 ## What each one is for
 
 | script | what it does | what it reads from `config/` |
 |---|---|---|
 | `backfill_pages.py` | Makes calibre count the pages of books added before it computed page counts, so sorting by length works. Rewrites each epub with itself; touches no metadata. | — |
 | `anthology_tidy.py` | Rebuilds an EpubMerge anthology's contents so it lists episodes rather than one entry per page. Optionally drops a title card repeated on every page. Images pass through untouched. | — |
+| `fill_story_urls.py` | Gives a book with no `url` identifier the story link its own epub names — AO3's own downloads, added straight into calibre, never get one. Reads each such epub, so give it a range. | — |
 | `mark_downloaded.py` | Sets a boolean column true on books FanFicFare can update, detected from the epub's `dc:source`, a calibre identifier, or an AO3-generated preface. Only ever sets true. | — |
 | `stray_tags.py` | Sweeps up tags the site supplied. The service already applies the rules as books arrive, so this is for the backlog and for tags nobody has ruled on: it rewrites `tag_rules.txt` listing those, for you to decide. | `tag_rules.txt` |
 | `refresh_site_tags.py` | Asks the sites what your books are tagged and files that through the same rules an add would, for books that arrived before the rules did. Metadata only — no chapters are fetched and no epub is written. Where a site disagrees with a tag under `exclusive_roots` it reports rather than picks. | `tag_rules.txt` |
@@ -36,9 +48,11 @@ and take `--rollback <file>` to put it all back.
 ## Order
 
 After importing a batch, the tag scripts want running in this order — each
-one leaves the tags in the shape the next expects:
+one leaves the tags in the shape the next expects. Give each the same
+`--since` to keep the run to the batch:
 
 ```
+fill_story_urls.py    story links where calibre has none
 normalize_tags.py     names spelled consistently
 regroup_tags.py       tags in the right branches
 refresh_site_tags.py  what the sites say, filed through the rules

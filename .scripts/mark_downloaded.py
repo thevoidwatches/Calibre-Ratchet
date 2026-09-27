@@ -26,7 +26,6 @@ Usage (from server, where config.toml lives):
 from __future__ import annotations
 
 import argparse
-import posixpath
 import sys
 import tempfile
 from pathlib import Path
@@ -48,16 +47,8 @@ def ao3_generated(epub_path: str) -> bool:
     import zipfile
     try:
         with zipfile.ZipFile(epub_path) as zf:
-            opf_path, opf = epub_mod._opf(zf)
-            base = posixpath.dirname(opf_path)
-            manifest = {i.get("id"): i.get("href")
-                        for i in opf.findall(".//opf:manifest/opf:item", epub_mod._NS)}
             scanned = 0
-            for itemref in opf.findall(".//opf:spine/opf:itemref", epub_mod._NS):
-                href = manifest.get(itemref.get("idref"))
-                if not href:
-                    continue
-                path = posixpath.normpath(posixpath.join(base, href)) if base else href
+            for path in epub_mod.spine_paths(zf):
                 try:
                     data = zf.read(path)
                 except KeyError:
