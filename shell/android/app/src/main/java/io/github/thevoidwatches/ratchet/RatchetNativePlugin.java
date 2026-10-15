@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
+import android.os.StrictMode;
 import android.provider.Settings;
 
 import androidx.core.content.FileProvider;
@@ -48,29 +49,60 @@ public class RatchetNativePlugin extends Plugin {
      *  intents even when the user has picked Moon+ elsewhere. Targeting the
      *  package sidesteps resolution entirely.
      *
+     *  A targeted reader is given the file's path (a file: URI); the
+     *  fallback gets a content: URI from the app's FileProvider, the
+     *  sanctioned form. The targeted readers are Moon+, and Moon+ imports
+     *  whatever reaches it as a content: URI — the FileProvider's, and
+     *  MediaStore's too, which was tried — into Download/, then reads the
+     *  copy and keeps its place in that. Given a path it opens the file
+     *  where it lies, as from its own browser. Android 7 began refusing
+     *  file: URIs in intents, but the refusal is a StrictMode check in the
+     *  sending process (see startAllowingFileUri), and Moon+ reads shared
+     *  storage under its own grant.
+     *
      *  Shared with ShellBridge, which opens books from the bundled offline
      *  page where the Capacitor plugin runtime is unavailable.
      */
     static String openWithPackages(android.app.Activity activity, java.io.File file,
                                    String contentType, java.util.List<String> preferred) {
-        Uri uri = FileProvider.getUriForFile(activity,
-                activity.getPackageName() + ".fileprovider", file);
-        Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setDataAndType(uri, contentType);
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
-                | Intent.FLAG_ACTIVITY_NEW_TASK);
+        Intent byPath = new Intent(Intent.ACTION_VIEW);
+        byPath.setDataAndType(Uri.fromFile(file), contentType);
+        byPath.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         for (String pkg : preferred) {
             try {
-                intent.setPackage(pkg);
-                activity.startActivity(intent);
+                byPath.setPackage(pkg);
+                startAllowingFileUri(activity, byPath);
                 return pkg;
             } catch (ActivityNotFoundException e) {
                 // not installed (or not visible) — try the next preference
             }
         }
-        intent.setPackage(null);   // give up targeting; let Android resolve
-        activity.startActivity(intent);   // ActivityNotFoundException if none
+        Uri shared = FileProvider.getUriForFile(activity,
+                activity.getPackageName() + ".fileprovider", file);
+        Intent byContent = new Intent(Intent.ACTION_VIEW);
+        byContent.setDataAndType(shared, contentType);
+        byContent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                | Intent.FLAG_ACTIVITY_NEW_TASK);
+        activity.startActivity(byContent);   // ActivityNotFoundException if none
         return "default";
+    }
+
+    /** startActivity with the file: URI check suspended for the call.
+     *
+     *  FileUriExposedException is raised by this process's own StrictMode
+     *  policy, which is process-wide; so the check is lifted for the one
+     *  call and the policy put back as it was. The receiving app still needs
+     *  its own right to read the path — the readers this is used for have
+     *  all-files access.
+     */
+    private static void startAllowingFileUri(android.app.Activity activity, Intent intent) {
+        StrictMode.VmPolicy was = StrictMode.getVmPolicy();
+        StrictMode.setVmPolicy(new StrictMode.VmPolicy.Builder().build());
+        try {
+            activity.startActivity(intent);
+        } finally {
+            StrictMode.setVmPolicy(was);
+        }
     }
 
     @PluginMethod
