@@ -19,7 +19,7 @@ dry run so it can be checked rather than trusted.
 Usage (from server/, where config.toml lives):
     python ../.scripts/fill_fandom.py                 # dry run
     python ../.scripts/fill_fandom.py --apply
-    python ../.scripts/fill_fandom.py --rollback fandom-rollback-<n>.json
+    python ../.scripts/fill_fandom.py --rollback fandom-rollback-<time>-<n>.json
 """
 
 from __future__ import annotations

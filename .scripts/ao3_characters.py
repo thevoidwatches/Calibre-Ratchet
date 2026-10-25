@@ -47,7 +47,7 @@ Usage (from server/, where config.toml lives):
     python ../.scripts/ao3_characters.py --review --since 2026-09   # new books only
     python ../.scripts/ao3_characters.py             # dry run
     python ../.scripts/ao3_characters.py --apply
-    python ../.scripts/ao3_characters.py --rollback ao3-rollback-<n>.json
+    python ../.scripts/ao3_characters.py --rollback ao3-rollback-<time>-<n>.json
 """
 
 from __future__ import annotations

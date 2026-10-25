@@ -9,6 +9,7 @@ asks a site about.
 import json
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -111,8 +112,51 @@ def test_a_mapping_is_written_whole_and_undone_whole(library, tmp_path, capsys):
     assert library.written == {2: {"identifiers": {
         "isbn": "123", "url": "https://example.org/s/2"}}}
     assert "+ identifiers url:https://example.org/s/2" in capsys.readouterr().out
-    undo = json.loads((tmp_path / "ids-1.json").read_text(encoding="utf-8"))
+    [undo_file] = tmp_path.glob("ids-*-1.json")
+    undo = json.loads(undo_file.read_text(encoding="utf-8"))
     assert undo == {"2": {"identifiers": {"isbn": "123"}}}
+
+
+class Clock:
+    """Stands in for datetime in _tagtool: hands out the times given, in turn."""
+
+    def __init__(self, *stamps):
+        self.stamps = list(stamps)
+
+    def now(self):
+        return datetime.strptime(self.stamps.pop(0), "%Y%m%d-%H%M%S")
+
+
+def test_runs_that_change_as_many_books_keep_their_own_undo(library, tmp_path,
+                                                            monkeypatch):
+    """Both once wrote t-1.json, and the second run's undo replaced the first's."""
+    monkeypatch.setattr(_tagtool, "datetime",
+                        Clock("20261025-120000", "20261025-120500"))
+    for _ in range(2):
+        _tagtool.run(args("--since", "2026-09", "--apply"),
+                     lambda tags, meta: tags + ["New"], "t")
+        library.metas["2"]["tags"] = ["Old"]        # as it was, so it changes again
+
+    assert sorted(p.name for p in tmp_path.glob("t-*.json")) == [
+        "t-20261025-120000-1.json", "t-20261025-120500-1.json"]
+
+
+def test_an_undo_file_is_never_overwritten_nor_the_books_written_without_one(
+        library, tmp_path, monkeypatch):
+    monkeypatch.setattr(_tagtool, "datetime",
+                        Clock("20261025-120000", "20261025-120000"))
+    _tagtool.run(args("--since", "2026-09", "--apply"),
+                 lambda tags, meta: tags + ["New"], "t")
+    first = (tmp_path / "t-20261025-120000-1.json").read_text(encoding="utf-8")
+    library.metas["2"]["tags"] = ["Changed since"]
+    library.written.clear()
+
+    with pytest.raises(FileExistsError):
+        _tagtool.run(args("--since", "2026-09", "--apply"),
+                     lambda tags, meta: tags + ["New"], "t")
+
+    assert (tmp_path / "t-20261025-120000-1.json").read_text(encoding="utf-8") == first
+    assert library.written == {}
 
 
 def test_a_whole_library_mode_refuses_a_range():

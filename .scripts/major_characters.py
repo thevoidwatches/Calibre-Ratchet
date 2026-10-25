@@ -44,7 +44,7 @@ Usage (from server/, where config.toml lives):
     python ../.scripts/major_characters.py --vocab      # what it would create
     python ../.scripts/major_characters.py              # per-book dry run
     python ../.scripts/major_characters.py --apply
-    python ../.scripts/major_characters.py --rollback majchar-rollback-<n>.json
+    python ../.scripts/major_characters.py --rollback majchar-rollback-<time>-<n>.json
 """
 
 from __future__ import annotations

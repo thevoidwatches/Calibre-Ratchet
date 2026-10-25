@@ -26,7 +26,7 @@ Usage (from server/, where config.toml lives):
     python ../.scripts/stray_tags.py --review    # rewrite the rules file
     python ../.scripts/stray_tags.py             # dry run
     python ../.scripts/stray_tags.py --apply
-    python ../.scripts/stray_tags.py --rollback stray-rollback-<n>.json
+    python ../.scripts/stray_tags.py --rollback stray-rollback-<time>-<n>.json
 """
 
 from __future__ import annotations

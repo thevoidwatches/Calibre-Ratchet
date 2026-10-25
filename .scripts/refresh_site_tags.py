@@ -29,7 +29,7 @@ Usage (from server/, where config.toml lives):
     python ../.scripts/refresh_site_tags.py --library Serials --apply
     python ../.scripts/refresh_site_tags.py --library Serials --site royalroad
     python ../.scripts/refresh_site_tags.py --library Serials --since 2026-09
-    python ../.scripts/refresh_site_tags.py --rollback sitetags-rollback-<n>.json
+    python ../.scripts/refresh_site_tags.py --rollback sitetags-rollback-<time>-<n>.json
 """
 
 from __future__ import annotations

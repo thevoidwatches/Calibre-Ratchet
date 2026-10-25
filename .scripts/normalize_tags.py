@@ -26,7 +26,7 @@ list it had, so a bad rename is one command to undo.
 Usage (from server/, where config.toml lives):
     python ../.scripts/normalize_tags.py                 # dry run
     python ../.scripts/normalize_tags.py --apply
-    python ../.scripts/normalize_tags.py --rollback tag-rollback-<n>.json
+    python ../.scripts/normalize_tags.py --rollback tag-rollback-<time>-<n>.json
 """
 
 from __future__ import annotations

@@ -20,7 +20,7 @@ Every epub without one is downloaded and read, so give it a range:
 Usage (from server/, where config.toml lives):
     python ../.scripts/fill_story_urls.py --since 2026-09          # dry run
     python ../.scripts/fill_story_urls.py --since 2026-09 --apply
-    python ../.scripts/fill_story_urls.py --rollback storyurl-rollback-<n>.json
+    python ../.scripts/fill_story_urls.py --rollback storyurl-rollback-<time>-<n>.json
 """
 
 from __future__ import annotations

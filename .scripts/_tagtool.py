@@ -23,6 +23,7 @@ import argparse
 import json
 import re
 import sys
+from datetime import datetime
 from pathlib import Path
 
 # Story titles routinely carry curly quotes and dashes that the Windows
@@ -219,8 +220,14 @@ def run_multi(args, transform, rollback_stem: str, prepare=None) -> int:
     if args.apply and changes:
         undo = {bid: old for bid, (old, _) in changes.items()}
         BACKUPS.mkdir(exist_ok=True)
-        out = BACKUPS / f"{rollback_stem}-{len(changes)}.json"
-        out.write_text(json.dumps(undo, indent=1), encoding="utf-8")
+        # Named for when as well as how many: two runs of one script that
+        # changed the same number of books once shared a name, and the second
+        # replaced the first's undo. "x" refuses to overwrite even so, and
+        # nothing is written to calibre unless the undo was.
+        when = datetime.now().strftime("%Y%m%d-%H%M%S")
+        out = BACKUPS / f"{rollback_stem}-{when}-{len(changes)}.json"
+        with out.open("x", encoding="utf-8") as f:
+            f.write(json.dumps(undo, indent=1))
         print(f"\nrollback written to {out}")
         failed = 0
         for book_id, (_, new) in changes.items():
