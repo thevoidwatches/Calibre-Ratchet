@@ -36,6 +36,7 @@ means the same thing whichever applied it.
 from __future__ import annotations
 
 import fnmatch
+import html
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -169,9 +170,13 @@ def apply(meta: dict, rules: Rules, columns: dict[str, str]) -> dict[str, list[s
     a column that this library has not configured is ignored rather than
     guessed at, and its tag stays put.
     """
-    tags = list(meta.get("tags") or [])
-    if not tags or not rules:
+    arrived = list(meta.get("tags") or [])
+    if not arrived or not rules:
         return {}
+    # A tag is its text. FanFicFare 4.60 escapes some tags twice when it
+    # writes an epub — calibre then reads "Mira &amp; Rumi" — so entities are
+    # decoded before any rule is asked about one, or no rule would match.
+    tags = [html.unescape(tag) for tag in arrived]
 
     keep: list[str] = []
     additions: dict[str, list[str]] = {}
@@ -201,12 +206,12 @@ def apply(meta: dict, rules: Rules, columns: dict[str, str]) -> dict[str, list[s
 
     # Collapsing happens only on a book some rule fired on, so a book nobody
     # has ruled on is still left exactly as it is — including a redundant
-    # parent it was filed with by hand.
+    # parent it was filed with by hand — bar a tag's text being decoded.
     if not touched:
-        return {}
+        return {"tags": tags} if tags != arrived else {}
     out: dict[str, list[str]] = {}
     new_tags = drop_implied(_dedupe(keep))
-    if new_tags != tags:
+    if new_tags != arrived:
         out["tags"] = new_tags
     for column, values in additions.items():
         new_values = drop_implied(_dedupe(values))

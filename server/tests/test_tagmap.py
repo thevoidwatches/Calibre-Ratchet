@@ -245,6 +245,23 @@ def test_a_book_no_rule_fires_on_keeps_even_a_redundant_parent(tmp_path):
     assert tagmap.apply(book(["Fantasy", "Fantasy.High"]), r, COLUMNS) == {}
 
 
+# As FanFicFare 4.60 wrote it into an epub's OPF, once calibre had read it.
+ESCAPED = "Mira &amp; Rumi &amp; Zoey (KPop Demon Hunters)"
+
+
+def test_an_escaped_tag_is_matched_by_the_rule_for_its_text(tmp_path):
+    r = rules(tmp_path, "Mira & Rumi & Zoey (KPop Demon Hunters) = -\n")
+    assert tagmap.apply(book([ESCAPED, "Kept"]), r, COLUMNS) == {"tags": ["Kept"]}
+
+
+def test_an_escaped_tag_no_rule_covers_is_still_decoded(tmp_path):
+    """And nothing else about the book is tidied on the way: no rule fired."""
+    r = rules(tmp_path, "Something Else = -\n")
+    got = tagmap.apply(book([ESCAPED, "Fantasy", "Fantasy.High"]), r, COLUMNS)
+    assert got == {"tags": ["Mira & Rumi & Zoey (KPop Demon Hunters)",
+                            "Fantasy", "Fantasy.High"]}
+
+
 def test_implies_reads_depth_not_a_shared_prefix():
     assert tagmap.implies("Fantasy", "Fantasy.High")
     assert not tagmap.implies("Fantasy", "Fantasy High")
